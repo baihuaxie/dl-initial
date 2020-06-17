@@ -72,18 +72,14 @@ def fetch_dataloader(types, datadir, params):
             # apply train set tranforms if train data
             if split == 'train':
                 trainset = CIFAR10(datadir, download=False, train=True, transform=train_transform)
-                dataloader = DataLoader(trainset, batch_size=params.batch_size, shuffle=True, 
-                            num_workers=params.num_works,
-                            pin_memory=params.pin_cuda)
+                dataloader = DataLoader(trainset, batch_size=params.batch_size, shuffle=True, num_workers=params.num_workers, pin_memory=params.pin_cuda)
 
             # apply test set transforms if test data
             if split == 'test':
                 testset = CIFAR10(datadir, download=False, train=False, transform=test_transform)
-                dataloader = DataLoader(testset, batch_size=params.batch_size, shuffle=True, 
-                            num_workers=params.num_workers,
-                            pin_memory=params.pin_cuda)
+                dataloader = DataLoader(testset, batch_size=params.batch_size, shuffle=True, num_workers=params.num_workers, pin_memory=params.pin_cuda)
             
             dataloaders[split] = dataloader
 
-        return dataloaders
+    return dataloaders
                         

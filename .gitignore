@@ -18,3 +18,4 @@
 01_training_pytorch/torch_tutorial/data/cifar-10-batches-py/batches.meta
 01_training_pytorch/torch_tutorial/trained_models/cifar_net.pth
 01_training_pytorch/torch_tutorial/.ipynb_checkpoints/pytorch-tutorial-01-basics-checkpoint.ipynb
+*.pyc

@@ -13,12 +13,15 @@
 
     loss function:
     - takes as input the model outputs and labels
+        - by choice accept both train outputs and labels as tensors
     - returns a scalar as the loss
+        - must return a tensor or other class objects with a backward() method to propagate gradients
 
     metrics:
     - a dictionary containing metrics to be used to monitor training progress
     - for each metric need to define a corresponding function to compute the value for the metrics
         - takes as arguments the model outputs, labels, etc.
+    - by choice all metrics functions accepts tensors as inputs and returns floats or np.ndarray of floats
 
 """
 
@@ -149,20 +152,24 @@ def loss_fn(outputs: torch.tensor, labels: np.ndarray) -> nn.CrossEntropyLoss:
         labels: (ndarray) dimen = batch_size x 1 -> each element is an integer representing the correct label
 
     Returns:
-        loss: (nn.CrossEntroyLoss) dimension = 1 (scalar) -> a nn.CrossEntropyLoss class object containing the cross entropy loss over the batch
+        loss: (nn.CrossEntroyLoss) dimension = 1 (scalar) -> a tensor containing the cross entropy loss over the batch
+
+    Note:
+        - returned loss must be a class object with a backward() method to facilitate backpropagation
+        - can be a torch.tensor with requires_grad=True
 
     """
 
     return nn.CrossEntropyLoss(outputs, torch.from_numpy(labels))
 
 
-def accuracy(outputs: torch.tensor, labels: np.ndarray) -> float:
+def accuracy(outputs: torch.tensor, labels: torch.tensor) -> float:
     """
     Computes the classification accuracy metric
 
     Args:
         outputs: (tensor) dimension = batch_size x 10 -> each element in batch_size dim is a list containing the predicted log probabilities for 10 classes for the image 
-        labels: (ndarray) dimen = batch_size x 1 -> each element is an integer representing the correct label
+        labels: (tensor) dimen = batch_size x 1 -> each element is an integer representing the correct label
 
     Returns:
         accuracy: (float) accuracy in [0,1]
@@ -170,7 +177,7 @@ def accuracy(outputs: torch.tensor, labels: np.ndarray) -> float:
     """
     
     _, predicted_labels = torch.max(outputs, dim=1)
-    return np.sum(predicted_labels == labels) / float(labels.size)
+    return np.sum(predicted_labels == labels.numpy()) / float(labels.numpy().size)
 
 
 # maitain all metrics used in the training and evaluation loops in this dictionary
