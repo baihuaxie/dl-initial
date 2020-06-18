@@ -86,7 +86,7 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(self.num_channels*4, 10)
         self.dropout_rate = params.dropout_rate
 
-    def forward(self, x: torch.tesor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines how to use the layers to operate on an input tensor.
 
@@ -101,7 +101,7 @@ class Net(nn.Module):
         # apply conv + batch_norm + max_pool + relu
         # each max_pool layer has arguments of (input, stride)
         x = self.bn1(self.conv1(x))                             # batch_size x num_channels x 32 x 32  -> first increase channel dimension
-        x = F.relu(F.max_pool2d(x), 2)                          # batch_size x num_channels x 16 x 16  -> second decrease activation dimension
+        x = F.relu(F.max_pool2d(x, 2))                          # batch_size x num_channels x 16 x 16  -> second decrease activation dimension
         x = self.bn2(self.conv2(x))                             # batch_sze x num_channels*2 x 16 x 16
         x = F.relu(F.max_pool2d(x, 2))                          # batch_size x num_channels*2 x 8 x 8
         x = self.bn3(self.conv3(x))                             # batch_size x num_channels*4 x 8 x 8 
@@ -120,7 +120,7 @@ class Net(nn.Module):
         return F.log_softmax(x, dim=1)
 
     @staticmethod
-    def num_flat_features(x: torch.tensor) -> int:
+    def num_flat_features(x: torch.Tensor) -> int:
         """
         computes dimension for falltened activations
 
@@ -142,14 +142,14 @@ class Net(nn.Module):
         return num_features
 
 
-def loss_fn(outputs: torch.tensor, labels: np.ndarray) -> nn.CrossEntropyLoss:
+def loss_fn(outputs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     """
     Computes the cross entropy loss given the predicted log probabilites and labels
 
     Args:
         outputs: (tensor) dimension = batch_size x 10 -> each element in batch_size dim is a list containing
                   the predicted log probabilities for 10 classes for the image
-        labels: (ndarray) dimen = batch_size x 1 -> each element is an integer representing the correct label
+        labels: (torch.Tensor) dimension = batch_size x 1 -> each element is an integer representing the correct label
 
     Returns:
         loss: (nn.CrossEntroyLoss) dimension = 1 (scalar) -> a tensor containing the cross entropy loss over the batch
@@ -159,11 +159,12 @@ def loss_fn(outputs: torch.tensor, labels: np.ndarray) -> nn.CrossEntropyLoss:
         - can be a torch.tensor with requires_grad=True
 
     """
+    
+    criterion = nn.CrossEntropyLoss()
+    return criterion(outputs, labels)
 
-    return nn.CrossEntropyLoss(outputs, torch.from_numpy(labels))
 
-
-def accuracy(outputs: torch.tensor, labels: torch.tensor) -> float:
+def accuracy(outputs: torch.Tensor, labels: torch.Tensor) -> float:
     """
     Computes the classification accuracy metric
 

@@ -24,7 +24,7 @@ import utils
 from evaluate import evaluate
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_dir', default='C:/Users/bhxie/Documents/Github/dl-initial/01_training_pytorch/data/cifar-10-batches-py',
+parser.add_argument('--data_dir', default='./data/cifar-10-batches-py',
                     help='Directory containing the dataset')
 parser.add_argument('--model_dir', default='./experiments/base_model',
                     help='Directory containing the params.json')

@@ -10,7 +10,7 @@ import model.data_loader as data_loader
 @pytest.fixture
 def datadir():
     """ set directory containing dataset """
-    return '../../data/'
+    return './data/'
 
 @pytest.fixture
 def params():
@@ -56,7 +56,7 @@ def test_random_train_data_is_valid(fetch_data, params):
     
     # data: (torch.tensor) dimension = batch_size x 3 x 32 x 32
     assert list(train_data.size()) == [params.batch_size, 3, 32, 32]
-    # labels: (torch.tensor) dimension = batch_size
+    # labels: (torch.tensor) dimension = batch_size x 1
     assert list(train_labels.size()) == [params.batch_size]
 
 def test_test_dl_length(fetch_data, params):
