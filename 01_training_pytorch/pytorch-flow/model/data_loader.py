@@ -32,6 +32,7 @@
 
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+from torch.utils.data import Subset
 from torchvision.datasets import CIFAR10
 
 # transforms pipeline for train set
@@ -81,5 +82,48 @@ def fetch_dataloader(types, datadir, params):
             
             dataloaders[split] = dataloader
 
+    return dataloaders
+
+
+def fetch_subset_dataloader(types, datadir, params, batch_num):
+    """
+    Fetches dataloader objects for a subset of each type of data
+
+    This might be helpful in case I want test-train a few batches before the full sweep
+
+    Args:
+        types: (list) has one or more of "train, val, test" depending on the dataset
+        datadir: (str) file path containing the raw dataset
+        params: (Params object) hyperparameters controlling data loading behavior
+
+    Returns:
+        dataloadr: (dict) contains the DataLoader objects for each type in types
+    """
+
+    dataloaders = {}
+
+    for split in ['train','val','test']:
+        if split in types:
+
+            # return trainset subset dataloader
+            if split == 'train':
+                trainset = CIFAR10(datadir, download=False, 
+                                    train=True, transform=train_transform)
+                subset_indices = range(params.batch_size * batch_num)
+                trainset_subset = Subset(trainset, subset_indices)
+                dataloader = DataLoader(trainset_subset, batch_size=params.batch_size, shuffle=True,
+                                    num_workers=params.num_workers, pin_memory=params.pin_cuda)
+
+            # return testset subset dataloader
+            if split == 'test':
+                testset = CIFAR10(datadir, download=False,
+                                    train=False, transform=train_transform)
+                subset_indices = range(params.batch_size * batch_num)
+                testset_subset = Subset(testset, subset_indices)
+                dataloader = DataLoader(testset_subset, batch_size=params.batch_size, shuffle=True,
+                                        num_workers=params.num_workers, pin_memory=params.pin_cuda)
+
+            dataloaders[split] = dataloader
+    
     return dataloaders
                         

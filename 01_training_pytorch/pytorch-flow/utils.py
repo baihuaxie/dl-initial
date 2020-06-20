@@ -136,7 +136,7 @@ def save_checkpoint(state, is_best, checkpoint):
 
     """
 
-    filepath = os.path.join(checkpoint + 'last.pth.zip')
+    filepath = os.path.join(checkpoint, 'last.pth.zip')
     if not os.path.exists(checkpoint):
         print("Checkpoint directory does not exist, making directory: {}".format(checkpoint))
         os.mkdir(checkpoint)

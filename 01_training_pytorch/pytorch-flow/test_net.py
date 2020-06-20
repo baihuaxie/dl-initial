@@ -2,6 +2,7 @@
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 import numpy as np
 import pytest
@@ -46,6 +47,7 @@ def compute_loss(fetch_train_batch, train_net_batch):
     labels = fetch_train_batch[1]
     return net.loss_fn(outputs, labels)
 
+
 def test_net_is_nn_module_obj(Net):
     """ check Net() returns an nn.Module object """
     assert isinstance(Net, nn.Module), "- Net() type does not match"
@@ -81,8 +83,27 @@ def test_xent_loss(compute_loss, train_net_batch, fetch_train_batch):
         loss.item() * outputs.size()[0], 2) == 0.00,  "- loss is not cross entropy"
 
 
-def test_all_weights_updated_after_one_batch_training(train_net_batch):
+def test_every_layer_updated_after_training(Net, fetch_train_batch):
     """ check model parameters are updated after one batch training """
+    # configure Adam optimizer; use a large lr
+    optimizer = optim.Adam(Net.parameters(), lr=10)
+    # make a copy of network parameters before training
+    before = [t.clone() for t in list(Net.parameters())]
+    
+    # do training on one batch
+    images, labels = fetch_train_batch
+    outputs = Net(images)
+    optimizer.zero_grad()
+    loss = net.loss_fn(outputs, labels)
+    loss.backward()
+    optimizer.step()
+
+    # make a copy of network parameter after training
+    after = [t.clone() for t in list(Net.parameters())]
+
+    # assert that any elements in the weights are updated by training
+    for i in range(len(before)):
+        assert (before[i] != after[i]).any(), "- layer {} not updated".format(i+1)
 
 
 

@@ -24,12 +24,13 @@ import utils
 from evaluate import evaluate
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data_dir', default='./data/cifar-10-batches-py',
+parser.add_argument('--data_dir', default='./data/',
                     help='Directory containing the dataset')
-parser.add_argument('--model_dir', default='./experiments/base_model',
+parser.add_argument('--model_dir', default='./experiments/base-model',
                     help='Directory containing the params.json')
 parser.add_argument('--restore_file', default=None,
                     help='Optional, name of file in --model_dir containing weights / hyperparameters to be loaded before training')
+parser.add_argument('--run_mode', default='test', help='test mode run a subset of batches to test flow')
 
 
 def train(model, optimizer, loss_fn, dataloader, metrics, params):
@@ -190,11 +191,18 @@ if __name__ == '__main__':
     logging.info('Loading datasets...')
 
     # fetch the data loaders
-    data_loaders = data_loader.fetch_dataloader(
-        ['train', 'test'], args.data_dir, params
-    )
-    train_dl = data_loaders['train']
-    test_dl = data_loaders['test']
+    # if in test mode, fetch 10 batches
+
+    if args.run_mode == 'test':
+        data_loaders = data_loader.fetch_subset_dataloader(
+            ['train', 'test'], args.data_dir, params, 10)
+        train_dl = data_loaders['train']
+        test_dl = data_loaders['test']   
+    else:
+        data_loaders = data_loader.fetch_dataloader(
+            ['train', 'test'], args.data_dir, params)
+        train_dl = data_loaders['train']
+        test_dl = data_loaders['test']
 
     logging.info('- done.')
 
@@ -202,7 +210,7 @@ if __name__ == '__main__':
     myModel = net.Net(params).cuda() if params.cuda else net.Net(params)
 
     # define the optimizer
-    myOptimizer = optim.Adam(myModel.paramters(), lr=params.learning_rate)
+    myOptimizer = optim.Adam(myModel.parameters(), lr=params.learning_rate)
 
     # fetch loss function and metrics
     my_loss_fn = net.loss_fn

@@ -86,6 +86,15 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(self.num_channels*4, 10)
         self.dropout_rate = params.dropout_rate
 
+        # initialization
+        for m in self.modules():
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu')
+            if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines how to use the layers to operate on an input tensor.

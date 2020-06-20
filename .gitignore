@@ -1,7 +1,6 @@
 **/data/**
 **/00_datasets/**
 **/trained_models/**
-**/**vscode/**
 01_training_pytorch/torch_tutorial/data/cifar-10-batches-py/data_batch_1
 *.gz
 *.gz
@@ -22,3 +21,5 @@
 01_training_pytorch/torch_tutorial/.ipynb_checkpoints/pytorch-tutorial-01-basics-checkpoint.ipynb
 *.pyc
 
+*.log
+*.zip

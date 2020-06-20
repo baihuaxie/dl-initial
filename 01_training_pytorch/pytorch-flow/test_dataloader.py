@@ -19,7 +19,7 @@ def params():
 
 @pytest.fixture
 def fetch_data(datadir, params):
-    """ fetch the dataset """
+    """ fetch the dataset dataloaders """
     dl = data_loader.fetch_dataloader(['train', 'test'], datadir, params)
     return dl
 
@@ -71,3 +71,17 @@ def test_random_test_data_is_valid(fetch_data, params):
     test_data, test_labels = dl['test'].__iter__().next()
     assert list(test_data.size()) == [params.batch_size, 3, 32, 32]
     assert list(test_labels.size()) == [params.batch_size]
+
+
+@pytest.fixture
+def fetch_subset_data(datadir, params):
+    """ fetch the subset dataloaders """
+    num = 10
+    dl = data_loader.fetch_subset_dataloader(
+        ['train', 'test'], datadir, params, num)
+    return dl, num
+
+def test_train_subset_dataloader_len(fetch_subset_data, params):
+    """ check the size of train subset dataloader """
+    dl, num = fetch_subset_data
+    assert len(dl['train']) == num, "- train subset dataloader size wrong"
