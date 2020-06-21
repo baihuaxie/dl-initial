@@ -1,6 +1,7 @@
 **/data/**
 **/00_datasets/**
 **/trained_models/**
+**/experiments/**
 01_training_pytorch/torch_tutorial/data/cifar-10-batches-py/data_batch_1
 *.gz
 *.gz

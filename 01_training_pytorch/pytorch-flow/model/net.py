@@ -28,7 +28,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np 
+import numpy as np
 
 
 class Net(nn.Module):
@@ -187,7 +187,7 @@ def accuracy(outputs: torch.Tensor, labels: torch.Tensor) -> float:
     """
     
     _, predicted_labels = torch.max(outputs, dim=1)
-    return np.sum(predicted_labels == labels.numpy()) / float(labels.numpy().size)
+    return np.sum(predicted_labels.numpy() == labels.numpy()) / float(labels.numpy().size)
 
 
 # maitain all metrics used in the training and evaluation loops in this dictionary
