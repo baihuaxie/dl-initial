@@ -25,7 +25,6 @@ from tqdm import tqdm
 # torch
 import torch
 import torch.optim as optim
-from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
 
 # models
@@ -238,6 +237,8 @@ if __name__ == '__main__':
 
     # add model architecture to tensorboard
     images, labels = data_loader.select_n_random('train', args.data_dir, n=1)
+    if train_params.cuda:
+        images, labels = images.cuda(), labels.cuda()
     # images, labels = iter(train_dl).next()
     writer.add_graph(myModel, images.float())
 

@@ -8,7 +8,7 @@ import launch
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--parent_dir', default='./experiments/base-model',
+parser.add_argument('--parent_dir', default='./experiments/07022020',
                     help='Directory containing params.json')
 parser.add_argument('--data_dir', default='./data/', help="Directory containing the dataset")
 
@@ -23,9 +23,7 @@ if __name__ == "__main__":
     # Perform hypersearch over one parameter
     models = [
         'resnet18',
-        'resnet34',
-        'resnet50',
-        'resnet101'
+        'densenet40_k12'
     ]
 
     for model in models:
