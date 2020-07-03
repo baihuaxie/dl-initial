@@ -1,6 +1,14 @@
 """
 Train the model
 
+Usage:
+
+    $ train.py --model model_name --data_dir /path/to/dataset --exp_dir /path/to/experiment
+
+    optional commandline arguments:
+    --restore_file /path/to/pretrained/weights
+    --run_mode default='test'
+
 Note:
     - for simplicity, all variables pertaining to training (data, labels, loss, metrics, etc.) in this file are all torch.tensor objects
 
@@ -10,51 +18,41 @@ Note:
 import argparse
 import os
 import logging
-from tqdm import tqdm
+from importlib import import_module
 import numpy as np
+from tqdm import tqdm
 
 # torch
 import torch
-import torchvision
 import torch.optim as optim
 from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
 
-# custom
-import model.resnet as net
-import model.data_loader as data_loader
+# models
+import model.resnet as resnet
+import model.densenet as densenet
+
+# utilities
+import data_loader
 import utils
+import objectives as obj
 from evaluate import evaluate
 
 
-# commandline arguments
+# commandline
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', default='resnet18',
+parser.add_argument('--model', default='densenet40_k12',
                     help='Specify ResNet variant to be trained')
 parser.add_argument('--data_dir', default='./data/',
                     help='Directory containing the dataset')
-parser.add_argument('--model_dir', default='./experiments/base-model',
+parser.add_argument('--exp_dir', default='./experiments/base-model',
                     help='Directory containing the params.json')
 parser.add_argument('--restore_file', default=None,
-                    help='Optional, name of file in --model_dir containing weights / hyperparameters to be loaded before training')
+                    help='Optional, name of file in --exp_dir containing weights / hyperparameters to be loaded before training')
 parser.add_argument('--run_mode', default='test', help='test mode run a subset of batches to test flow')
 
 
-# maps command-line arguments to resnet variants
-net_dict = {
-    'resnet18': net.resnet18,
-    'resnet34': net.resnet34,
-    'resnet50': net.resnet50,
-    'resnet101': net.resnet101,
-    'resnet152': net.resnet152,
-    'resnext50_32x4d': net.resnext50_32x4d,
-    'resnext101_32x8d': net.resnext101_32x8d,
-    'wide_resnet50_2': net.wide_resnet50_2,
-    'wide_resnet101_2': net.wide_resnet101_2
-}
-
-
-def train(model, optimizer, loss_fn, dataloader, metrics, params):
+def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=None):
     """
     Train the model on num_steps batches
 
@@ -79,7 +77,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params):
     loss_avg = utils.RunningAverage()
 
     # use tqdm for progress bar during training
-    with tqdm(total=len(dataloader)) as t:
+    with tqdm(total=len(dataloader)) as prog:
 
         # standard way to access DataLoader object for iteration over dataset
         for i, (train_batch, labels_batch) in enumerate(dataloader):
@@ -111,6 +109,13 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params):
                                  for metric in metrics.keys()}
                 # add 'loss' as a metric -> because loss is already computed by loss_fn, no need to define another metric function
                 summary_batch['loss'] = loss.item()
+
+                # write training summary to tensorboard
+                for metric, value in summary_batch.items():
+                    writer.add_scalar(
+                        metric, value, epoch*len(dataloader)+i
+                    )
+
                 # append summary
                 summ.append(summary_batch)
 
@@ -118,8 +123,8 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params):
             loss_avg.update(loss.item())
 
             # update progress bar to show running average for loss
-            t.set_postfix(loss='{:05.3f}'.format(loss_avg()))
-            t.update()
+            prog.set_postfix(loss='{:05.3f}'.format(loss_avg()))
+            prog.update()
 
         # compute mean of all metrics in summary
         metrics_mean = {metric: np.mean([x[metric] for x in summ]) for metric in summ[0].keys()}
@@ -130,7 +135,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params):
 
 
 def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metrics, params,
-                       model_dir, restore_file=None):
+                       exp_dir, scheduler=None, restore_file=None, writer=None):
     """
     Train the model and evaluate on every epoch
 
@@ -142,14 +147,14 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
         loss_fn : (function) a function that takes batch_output (tensor) and batch_labels (np.ndarray) and return the loss (tensor) over the batch
         metrics: (dict) a dictionary of functions that compute a metric using the batch_output and batch_labels
         params: (Params) hyperparameters
-        model_dir: (string) directory containing params.json, learned weights, and logs
+        exp_dir: (string) directory containing params.json, learned weights, and logs
         restore_file: (string) optional = name of file to restore training from -> no filename extension .pth or .pth.tar/gz
 
     """
 
     # reload the weights from restore_file if specified
     if restore_file is not None:
-        restore_path = os.path.join(model_dir, restore_file + '.pth.zip')
+        restore_path = os.path.join(exp_dir, restore_file + '.pth.zip')
         logging.info("Restoring weights from {}".format(restore_path))
         utils.load_checkpoint(restore_path, model, optimizer)
 
@@ -160,11 +165,19 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
         # running one epoch
         logging.info("Epoch {} / {}".format(epoch+1, params.num_epochs))
 
+        # logging current learning rate
+        for i, param_group in enumerate(optimizer.param_groups):
+            logging.info("learning rate = {} for parameter group {}".format(param_group['lr'], i))
+
         # train for one full pass over the training set
-        train(model, optimizer, loss_fn, train_loader, metrics, params)
+        train(model, optimizer, loss_fn, train_loader, metrics, params, epoch, writer)
 
         # evaluate for one epoch on the validation set
         val_metrics = evaluate(model, loss_fn, val_loader, metrics, params)
+
+        # schedule learning rate
+        if scheduler is not None:
+            scheduler.step()
 
         # check if current epoch has best accuracy
         val_accu = val_metrics['accuracy']
@@ -177,8 +190,8 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
                 'state_dict': model.state_dict(),
                 'optim_dict': optimizer.state_dict()
             },
-            is_best = is_best,
-            checkpoint = model_dir
+            is_best=is_best,
+            checkpoint=exp_dir
         )
 
         # if best accuray
@@ -191,61 +204,83 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
 
 if __name__ == '__main__':
 
+    ### -------- logistics --------###
     # load the params from json file
     args = parser.parse_args()
-    json_path = os.path.join(args.model_dir, 'params.json')
+    json_path = os.path.join(args.exp_dir, 'params.json')
     assert os.path.isfile(json_path), "No json configuration file found at {}".format(json_path)
-    params = utils.Params(json_path)
+    train_params = utils.Params(json_path)
+
+    # load the models from json file
+    models_dict = utils.Params('./model/models.json')
 
     # tensorboard
-    writer = SummaryWriter(args.model_dir)
+    writer = SummaryWriter(args.exp_dir)
+
+    # set the logger
+    utils.set_logger(os.path.join(args.exp_dir, 'train.log'))
 
     # use GPU if available
-    params.cuda = torch.cuda.is_available()
+    train_params.cuda = torch.cuda.is_available()
 
     # set random seed for reproducible experiments
     torch.manual_seed(200)
-    if params.cuda:
+    if train_params.cuda:
         torch.cuda.manual_seed(200)
 
-    # set the logger
-    utils.set_logger(os.path.join(args.model_dir, 'train.log'))
+    ### --------- model ---------- ###
+    # define the model
+    net, model = models_dict.dict[args.model].split('.')
+    if train_params.cuda:
+        myModel = getattr(import_module('.'+net, 'model'), model)().cuda()
+    else:
+        myModel = getattr(import_module('.'+net, 'model'), model)()
 
-    # create the input data pipeline
+    # add model architecture to tensorboard
+    images, labels = data_loader.select_n_random('train', args.data_dir, n=1)
+    # images, labels = iter(train_dl).next()
+    writer.add_graph(myModel, images.float())
+
+    ### ------ data pipeline ----- ###
     logging.info('Loading datasets...')
 
     # fetch the data loaders
     # if in test mode, fetch 10 batches
     if args.run_mode == 'test':
         data_loaders = data_loader.fetch_subset_dataloader(
-            ['train', 'test'], args.data_dir, params, 10)
+            ['train', 'test'], args.data_dir, train_params, 10)
         train_dl = data_loaders['train']
         test_dl = data_loaders['test']
     else:
         data_loaders = data_loader.fetch_dataloader(
-            ['train', 'test'], args.data_dir, params)
+            ['train', 'test'], args.data_dir, train_params)
         train_dl = data_loaders['train']
         test_dl = data_loaders['test']
 
     logging.info('- done.')
 
-    # define the model
-    if params.cuda:
-        myModel = net_dict[args.model]().cuda()
-    else:
-        myModel = net_dict[args.model]()
-
-    images, labels = iter(train_dl).next()
-    writer.add_graph(myModel, images)
-
+    ### ------ optimizer --------- ###
     # define the optimizer
-    myOptimizer = optim.Adam(myModel.parameters(), lr=params.learning_rate)
+    if train_params.optimizer == 'Adam':
+        # use Adam
+        myOptimizer = optim.Adam(myModel.parameters(), lr=train_params.initial_lr,
+                                 weight_decay=train_params.weight_decay)
+    if train_params.optimizer == 'SGD':
+        # use SGD w.t. Nesterov momentum
+        myOptimizer = optim.SGD(myModel.parameters(), lr=train_params.initial_lr, momentum=train_params.momentum,
+                                weight_decay=train_params.weight_decay, nesterov=True)
+
+    # define learning rate scheduler
+    if train_params.scheduler == 'MultiStepLR':
+        myScheduler = optim.lr_scheduler.MultiStepLR(myOptimizer, milestones=train_params.scheduler_milestones,
+                                                     gamma=train_params.scheduler_gamma)
 
     # fetch loss function and metrics
-    my_loss_fn = net.loss_fn
-    my_metrics = net.metrics
+    my_loss_fn = obj.loss_fn
+    my_metrics = obj.metrics
 
-    # train the model
-    logging.info('Starting training for {} epoch(s)...'.format(params.num_epochs))
-    train_and_evaluate(myModel, myOptimizer, train_dl, test_dl, my_loss_fn, my_metrics, params,
-                       args.model_dir, args.restore_file)
+    ### ----- train the model ----- ###
+    logging.info('Starting training for {} epoch(s)...'.format(train_params.num_epochs))
+    
+    train_and_evaluate(myModel, myOptimizer, train_dl, test_dl, my_loss_fn, my_metrics, train_params,
+                       args.exp_dir, myScheduler, args.restore_file, writer)

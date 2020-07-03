@@ -1,9 +1,7 @@
 """
-    ResNet from 'Deep Residual Learning for Image Recognition', Kaiming He et al (CVPR 2015)
+    ResNet from 'Deep Residual Learning for Image Recognition', Kaiming He et al, CVPR 2015
 
 """
-
-import numpy as np
 
 import torch
 import torch.nn as nn
@@ -199,7 +197,7 @@ class ResNet(nn.Module):
 
     """
 
-    def __init__(self, block, stacks, num_classes=1000, zero_init_residual=False,
+    def __init__(self, block, stacks, num_classes=10, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         """
@@ -207,7 +205,7 @@ class ResNet(nn.Module):
 
         Args:
             block: (BasicBlock or BottleNeck class) type of residual block to use as building block for res-stacks
-            layers: (list) a list of 4 integers, each specifying the number of layers (residual blocks) in each of the 4 res-stacks
+            stacks: (list) a list of 4 integers, each specifying the number of layers (residual blocks) in each of the 4 res-stacks
             num_class: (int) number of final fc layer outputs
             zero_init_residual: (bool) if true initialize the weights of the last BN layer in each residual block to zero
             groups: (int)
@@ -235,10 +233,9 @@ class ResNet(nn.Module):
             raise ValueError("replace_stride_with_dilation should be None"
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
 
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         # construt residual stacks
         # 1st stack use no striding, no channel doubling (except block expansion)
@@ -254,7 +251,9 @@ class ResNet(nn.Module):
 
         # global average pooling
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(256 * block.expansion, num_classes)
+
+        self.dropout = nn.Dropout(p=0.5)
 
         # initialization
         for m in self.modules():
@@ -330,25 +329,42 @@ class ResNet(nn.Module):
 
 
     def _forward_impl(self, x):
-        """ sub-routine to implement forward method """
-                                                                        # batch_size x 3 x H x H -> 224 x 224 on ImageNet
-        x = self.bn1(self.conv1(x))                                     # batch_size x 64 x H/2 x H/2 -> 112 x 112
-        x = self.maxpool(self.relu(x))                                  # batch_size x 64 x H/4 x H/4 -> 56 x 56
+        """ forward method: no dropout """
+                                                                        # batch_size x 3 x H x H -> 32 x 32 on cifar-10
+        x = self.bn1(self.conv1(x))                                     # batch_size x 64 x H x H -> 32 x 32
 
-        x = self.stack1(x)                                              # batch_size x 64*block.expansion x H/4 x H/4 -> 56 x 56
-        x = self.stack2(x)                                              # batch_size x 128*block.expansion x H/8 x H/8 -> 28 x 28
-        x = self.stack3(x)                                              # batch_size x 256*block.expansion x H/16 x H/16 -> 14 x 14
-        x = self.stack4(x)                                              # batch_size x 512*block.expansion x H/32 x H/32 -> 7 x 7
+        x = self.stack1(x)                                              # batch_size x 64*block.expansion x H/2 x H/2 -> 16 x 16
+        x = self.stack2(x)                                              # batch_size x 128*block.expansion x H/4 x H/4 -> 8 x 8
+        x = self.stack3(x)                                              # batch_size x 256*block.expansion x H/8 x H/8 -> 4 x 4
 
-        x = self.avgpool(x)                                             # batch_size x 512*block.expansion x 1 x 1
-        x = torch.flatten(x, 1)                                         # batch_size x 512*block.expansion*1*1
-        x = self.fc(x)                                                  # batch_size x num_classes
+        x = self.avgpool(x)                                             # batch_size x 256*block.expansion x 1 x 1
+        x = torch.flatten(x, 1)                                         # batch_size x 256*block.expansion*1*1
+        out = self.fc(x)                                                # batch_size x num_classes
 
-        return x
+        return out
+
+    def _forward_imp2(self, x):
+        """ forward method: dropout=0.5 """
+                                                                        # batch_size x 3 x H x H -> 32 x 32 on cifar-10
+        x = self.bn1(self.conv1(x))                                     # batch_size x 64 x H x H -> 32 x 32
+        x = self.dropout(x)
+
+        x = self.stack1(x)                                              # batch_size x 64*block.expansion x H/2 x H/2 -> 16 x 16
+        x = self.dropout(x)
+        x = self.stack2(x)                                              # batch_size x 128*block.expansion x H/4 x H/4 -> 8 x 8
+        x = self.dropout(x)
+        x = self.stack3(x)                                              # batch_size x 256*block.expansion x H/8 x H/8 -> 4 x 4
+        x = self.dropout(x)
+
+        x = self.avgpool(x)                                             # batch_size x 256*block.expansion x 1 x 1
+        x = torch.flatten(x, 1)                                         # batch_size x 256*block.expansion*1*1
+        out = self.fc(x)                                                  # batch_size x num_classes
+
+        return out
 
     def forward(self, x):
         """ forward method """
-        return self._forward_impl(x)
+        return self._forward_imp2(x)
 
 
 
@@ -440,49 +456,3 @@ def wide_resnet101_2(pretrained=False, progress=True, **kwargs):
     """
     kwargs['width_per_group'] = 64 * 2
     return _resnet('wide_resnet101_2', BottleNeck, [3, 4, 23, 3], pretrained, progress, **kwargs)
-
-
-
-def loss_fn(outputs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    """
-    Computes the cross entropy loss given the predicted log probabilites and labels
-
-    Args:
-        outputs: (tensor) dimension = batch_size x 10 -> each element in batch_size dim is a list containing
-                  the predicted log probabilities for 10 classes for the image
-        labels: (torch.Tensor) dimension = batch_size x 1 -> each element is an integer representing the correct label
-
-    Returns:
-        loss: (nn.CrossEntroyLoss) dimension = 1 (scalar) -> a tensor containing the cross entropy loss over the batch
-
-    Note:
-        - returned loss must be a class object with a backward() method to facilitate backpropagation
-        - can be a torch.tensor with requires_grad=True
-
-    """
-
-    criterion = nn.CrossEntropyLoss()
-    return criterion(outputs, labels)
-
-
-def accuracy(outputs: torch.Tensor, labels: torch.Tensor) -> float:
-    """
-    Computes the classification accuracy metric
-
-    Args:
-        outputs: (tensor) dimension = batch_size x 10 -> each element in batch_size dim is a list containing the predicted log probabilities for 10 classes for the image
-        labels: (tensor) dimen = batch_size x 1 -> each element is an integer representing the correct label
-
-    Returns:
-        accuracy: (float) accuracy in [0,1]
-
-    """
-
-    _, predicted_labels = torch.max(outputs, dim=1)
-    return np.sum(predicted_labels.numpy() == labels.numpy()) / float(labels.numpy().size)
-
-
-# maitain all metrics used in the training and evaluation loops in this dictionary
-metrics = {
-    'accuracy': accuracy,
-}
