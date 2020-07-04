@@ -12,8 +12,10 @@ import os
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 import torch
+from torchsummary import summary
 
 class Params():
     """
@@ -166,3 +168,22 @@ def matplotlib_imshow(img, one_channel=False):
         plt.imshow(npimg, cmap='Greys')
     else:
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
+
+
+def print_net_summary(log, net, input):
+    """ 
+    Print the net summary into a log file 
+
+    Args:
+        log: (str) log file path
+        net: (nn.Module) network instance
+        input: (torch.Tensor) input tensor of size [batch, channel, ...]
+
+    """
+
+    original_stdout = sys.stdout
+    with open(log, 'w') as f:
+        sys.stdout = f
+        summary(net, input_size=tuple(input.size()[1:]))
+    sys.stdout = original_stdout
+    f.close()
