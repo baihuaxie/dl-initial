@@ -222,9 +222,12 @@ class DenseNet(nn.Module):
             # the input of each dense block except the first one is always = output of transition layer = output of last dense block * compression_factor
             self._inplanes.append(int(self._outplanes[i] * self.theta))
 
-        # transition layers
+        # dense + transition layers
+        self.denseblock1 = self._init_denselayers(layer, self._inplanes[0], layers[0])
         self.transition1 = TransitionLayer(self._outplanes[0], stride=2, theta=self.theta)
+        self.denseblock2 = self._init_denselayers(layer, self._inplanes[1], layers[1])
         self.transition2 = TransitionLayer(self._outplanes[1], stride=2, theta=self.theta)
+        self.denseblock3 = self._init_denselayers(layer, self._inplanes[2], layers[2])
 
         # average pooling + linear + softmax layers
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -241,32 +244,52 @@ class DenseNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
+    def _init_denselayers(self, layer, inplanes, num_layers, norm_layer=None):
+        """
+        Define the dense layers in a dense block
 
-    def _make_denseblock(self, x: torch.Tensor, inplanes, num_layers):
+        Args:
+            layer: (DenseLayer or BottleneckLayar object) type of dense layer in the dense block
+            inplanes: (int) number of input channels to the dense block
+            num_layers: (int) number of dense layers in the dense block
+            norm_layer: (nn.Module) normalization layer; default = self._norm_layer
+
+        Returns:
+            denseblock: (nn.ModuleList) a list containing the layers in the denseblock, but not connected
+
+        """
+        if norm_layer is None:
+            norm_layer = self._norm_layer
+
+        layers = []
+
+        for i in range(num_layers):
+            layer_input = self.k * i + inplanes
+            layer_output = self.k
+
+            layers.append(layer(layer_input, layer_output, norm_layer))
+
+        return nn.ModuleList(layers)
+
+
+    def _make_denseblock(self, x: torch.Tensor, block):
         """
         Constructing a DenseBlock
 
         Args:
             x: (torch.Tensor) input tensor
-            inplanes: (int) number of input channels to the dense block
-            layers: (int) number of layers in the dense block
+            block: (nn.ModuleList) a list containing the layers defined in the denseblock
 
         Return:
             x: (torch.Tensor) output tensor
         """
 
-        if x.size()[1] != inplanes:
-            raise ValueError("input tensor dimension {} does not match with input channel numer {}".format(x.size()[1], inplanes))
-
-        norm_layer = self._norm_layer
-        layers = []
-
-        for i in range(num_layers):
-            layer_inplanes = self.k * i + inplanes
-            layer_outplanes = self.k
-
-            layers.append(self._layer(layer_inplanes, layer_outplanes, norm_layer))
-            x = torch.cat((x, layers[i](x)), dim=1)
+        for i in range(len(block)):
+            layer_input = block[i].conv1.in_channels
+            if layer_input != x.size()[1]:
+                raise ValueError("input tensor dimension {} does not match with input channel number {} for layer {} in denseblock".format(
+                                 x.size()[1], layer_input, i))
+            x = torch.cat((x, block[i](x)), dim=1)
 
         return x
 
@@ -276,11 +299,11 @@ class DenseNet(nn.Module):
                                                                                                 # eg: k = 12, layers = [32, 32, 32], theta=0.5
                                                                                                 # x = batch_size x 3 x 32 x 32
         x = self.relu(self.bn1(self.conv1(x)))                                                  # x = batch_size x 24 x 32 x 32
-        x = self._make_denseblock(x, self._inplanes[0], self._layers[0])                        # x = batch_size x 408 x 32 x 32 (408 = 24 + 12*32)
+        x = self._make_denseblock(x, self.denseblock1)                                          # x = batch_size x 408 x 32 x 32 (408 = 24 + 12*32)
         x = self.transition1(x)                                                                 # x = batch_size x 204 x 16 x 16 (204 = 408*0.5)
-        x = self._make_denseblock(x, self._inplanes[1], self._layers[1])                        # x = batch_size x 588 x 16 x 16 (588 = 204 + 12*32)
+        x = self._make_denseblock(x, self.denseblock2)                                          # x = batch_size x 588 x 16 x 16 (588 = 204 + 12*32)
         x = self.transition2(x)                                                                 # x = batch_size x 294 x 8 x 8   (294 = 588*0.5)
-        x = self._make_denseblock(x, self._inplanes[2], self._layers[2])                        # x = batch_size x 678 x 8 x 8   (678 = 294 + 12*32)
+        x = self._make_denseblock(x, self.denseblock3)                                          # x = batch_size x 678 x 8 x 8   (678 = 294 + 12*32)
         x = self.avgpool(x)                                                                     # x = batch_size x 678 x 1 x 1
         x = torch.flatten(x, 1)                                                                 # x = batch_size x 678
         out = self.fc(x)                                                                        # x = batch_size x num_classes
@@ -293,15 +316,15 @@ class DenseNet(nn.Module):
                                                                                                 # eg: k = 12, layers = [32, 32, 32], theta=0.5
                                                                                                 # x = batch_size x 3 x 32 x 32
         x = self.relu(self.bn1(self.conv1(x)))                                                  # x = batch_size x 24 x 32 x 32
-        x = self._make_denseblock(x, self._inplanes[0], self._layers[0])                        # x = batch_size x 408 x 32 x 32 (408 = 24 + 12*32)
+        x = self._make_denseblock(x, self.denseblock1)                                          # x = batch_size x 408 x 32 x 32 (408 = 24 + 12*32)
         x = self.dropout(x)
         x = self.transition1(x)                                                                 # x = batch_size x 204 x 16 x 16 (204 = 408*0.5)
         x = self.dropout(x)
-        x = self._make_denseblock(x, self._inplanes[1], self._layers[1])                        # x = batch_size x 588 x 16 x 16 (588 = 204 + 12*32)
+        x = self._make_denseblock(x, self.denseblock2)                                          # x = batch_size x 588 x 16 x 16 (588 = 204 + 12*32)
         x = self.dropout(x)
         x = self.transition2(x)                                                                 # x = batch_size x 294 x 8 x 8   (294 = 588*0.5)
         x = self.dropout(x)
-        x = self._make_denseblock(x, self._inplanes[2], self._layers[2])                        # x = batch_size x 678 x 8 x 8   (678 = 294 + 12*32)
+        x = self._make_denseblock(x, self.denseblock3)                                          # x = batch_size x 678 x 8 x 8   (678 = 294 + 12*32)
         x = self.dropout(x)
         x = self.avgpool(x)                                                                     # x = batch_size x 678 x 1 x 1
         x = torch.flatten(x, 1)                                                                 # x = batch_size x 678

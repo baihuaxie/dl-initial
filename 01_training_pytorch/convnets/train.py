@@ -235,12 +235,15 @@ if __name__ == '__main__':
     else:
         myModel = getattr(import_module('.'+net, 'model'), model)()
 
-    # add model architecture to tensorboard
-    images, labels = data_loader.select_n_random('train', args.data_dir, n=1)
+    # add model architecture to tensorboard & log
+    images, labels = data_loader.select_n_random('train', args.data_dir, n=2)
     if train_params.cuda:
         images, labels = images.cuda(), labels.cuda()
-    # images, labels = iter(train_dl).next()
+    # write to tensorboard
     writer.add_graph(myModel, images.float())
+    # write to log file
+    utils.print_net_summary(args.exp_dir+'/net_summary.log', myModel, images)
+
 
     ### ------ data pipeline ----- ###
     logging.info('Loading datasets...')

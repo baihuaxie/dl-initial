@@ -22,8 +22,12 @@ if __name__ == "__main__":
 
     # Perform hypersearch over one parameter
     models = [
-        'resnet18',
-        'densenet40_k12'
+        'densenet40_k12',
+        'densenet100_k12',
+        'densenet100_k24',
+        'densenetbc100_k12',
+        'densenetbc250_k24',
+        'densenetbc190_k40'
     ]
 
     for model in models:
