@@ -8,7 +8,7 @@ import launch
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--parent_dir', default='./experiments/07022020',
+parser.add_argument('--exp_dir', default='./experiments/launch-test',
                     help='Directory containing params.json')
 parser.add_argument('--data_dir', default='./data/', help="Directory containing the dataset")
 
@@ -16,12 +16,17 @@ parser.add_argument('--data_dir', default='./data/', help="Directory containing 
 if __name__ == "__main__":
     # Load the "reference" parameters from parent_dir json file
     args = parser.parse_args()
-    json_path = os.path.join(args.parent_dir, 'params.json')
+    json_path = os.path.join(args.exp_dir, 'params.json')
     assert os.path.isfile(json_path), "No json configuration file found at {}".format(json_path)
     params = utils.Params(json_path)
 
     # Perform hypersearch over one parameter
     models = [
+        'resnet18',
+        'resnet34',
+        'resnet50',
+        'resnet101',
+        'resnet152',
         'densenet40_k12',
         'densenet100_k12',
         'densenet100_k24',
@@ -36,4 +41,4 @@ if __name__ == "__main__":
 
         # Launch job (name has to be unique)
         job_name = "{}".format(model)
-        launch.launch_training_job(args.parent_dir, args.data_dir, job_name, params)
+        launch.launch_training_job(args.exp_dir, args.data_dir, job_name, params)

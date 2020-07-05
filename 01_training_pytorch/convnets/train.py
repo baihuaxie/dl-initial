@@ -24,6 +24,7 @@ from tqdm import tqdm
 
 # torch
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
@@ -40,13 +41,13 @@ from evaluate import evaluate
 
 # commandline
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', default='densenet40_k12',
+parser.add_argument('--model', default='resnet18',
                     help='Specify ResNet variant to be trained')
 parser.add_argument('--data_dir', default='./data/',
                     help='Directory containing the dataset')
-parser.add_argument('--exp_dir', default='./experiments/base-model',
+parser.add_argument('--exp_dir', default='./experiments/launch-test',
                     help='Directory containing the params.json')
-parser.add_argument('--restore_file', default=None,
+parser.add_argument('--restore_file', default='best',
                     help='Optional, name of file in --exp_dir containing weights / hyperparameters to be loaded before training')
 parser.add_argument('--run_mode', default='test', help='test mode run a subset of batches to test flow')
 
@@ -112,7 +113,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=
                 # write training summary to tensorboard
                 for metric, value in summary_batch.items():
                     writer.add_scalar(
-                        metric, value, epoch*len(dataloader)+i
+                        'training '+metric, value, epoch*len(dataloader)+i
                     )
 
                 # append summary
@@ -130,6 +131,8 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=
         metrics_string = ' ; '.join('{}: {:5.03f}'.format(k, v) for k, v in metrics_mean.items())
 
         logging.info("- Train metrics: {}".format(metrics_string))
+
+    return metrics_mean
 
 
 
@@ -155,7 +158,8 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
     if restore_file is not None:
         restore_path = os.path.join(exp_dir, restore_file + '.pth.zip')
         logging.info("Restoring weights from {}".format(restore_path))
-        utils.load_checkpoint(restore_path, model, optimizer)
+        if os.path.exists(restore_path):
+            utils.load_checkpoint(restore_path, model, optimizer)
 
     best_val_accu = 0.0
 
@@ -169,7 +173,7 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
             logging.info("learning rate = {} for parameter group {}".format(param_group['lr'], i))
 
         # train for one full pass over the training set
-        train(model, optimizer, loss_fn, train_loader, metrics, params, epoch, writer)
+        train_metrics = train(model, optimizer, loss_fn, train_loader, metrics, params, epoch, writer)
 
         # evaluate for one epoch on the validation set
         val_metrics = evaluate(model, loss_fn, val_loader, metrics, params)
@@ -198,7 +202,18 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
             logging.info("- Found new best accuray model at epoch {}".format(epoch+1))
             best_val_accu = val_accu
 
-            # save best val metrics in a json file
+        # add train and validation per-epoch mean metrics to tensorboard
+        for metric, value in train_metrics.items():
+            if metric in val_metrics.keys():
+                writer.add_scalars(metric, {'train': value, 'val': val_metrics[metric]}, epoch)
+
+        # add layer weights / gradients distributions to tensorboard
+        for idx, m in enumerate(model.modules()):
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
+                if m.weight is not None:
+                    writer.add_histogram('layer{}.weight'.format(idx), m.weight, epoch)
+                if m.weight.grad is not None:
+                    writer.add_histogram('layer{}.weight.grad'.format(idx), m.weight.grad, epoch)
 
 
 if __name__ == '__main__':
