@@ -157,8 +157,8 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
     # reload the weights from restore_file if specified
     if restore_file is not None:
         restore_path = os.path.join(exp_dir, restore_file + '.pth.zip')
-        logging.info("Restoring weights from {}".format(restore_path))
         if os.path.exists(restore_path):
+            logging.info("Restoring weights from {}".format(restore_path))
             utils.load_checkpoint(restore_path, model, optimizer)
 
     best_val_accu = 0.0

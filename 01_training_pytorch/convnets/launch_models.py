@@ -22,12 +22,12 @@ if __name__ == "__main__":
 
     # Perform hypersearch over one parameter
     models = [
-        'resnet18',
-        'resnet34',
-        'resnet50',
-        'resnet101',
-        'resnet152',
-        'densenet40_k12',
+        #'resnet18',
+        #'resnet34',
+        #'resnet50',
+        #'resnet101',
+        #'resnet152',
+        #'densenet40_k12',
         'densenet100_k12',
         'densenet100_k24',
         'densenetbc100_k12',
