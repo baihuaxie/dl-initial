@@ -52,7 +52,7 @@ parser.add_argument('--restore_file', default='best',
 parser.add_argument('--run_mode', default='test', help='test mode run a subset of batches to test flow')
 
 
-def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=None):
+def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device, writer=None):
     """
     Train the model on num_steps batches
 
@@ -63,6 +63,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=
         dataloader: (torch.utils.data.DataLoader) a DataLoader object to facilitate accessing data from the training set
         metrics: (dict) contains functions to return the value of each metric; metrics functions accept torch.tensor inputs
         params: (Params) hyperparameters
+        device: (str) device type; usually 'cuda:0' or 'cpu'
 
     """
 
@@ -83,9 +84,8 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=
         for i, (train_batch, labels_batch) in enumerate(dataloader):
 
             # move to GPU if available
-            if params.cuda:
-                train_batch, labels_batch = train_batch.cuda(
-                    non_blocking=True), labels_batch.cuda(non_blocking=True)
+            train_batch, labels_batch = train_batch.to(device,
+                non_blocking=True), labels_batch.to(device, non_blocking=True)
 
             # compute model output
             output_batch = model(train_batch)
@@ -105,22 +105,23 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=
                 # move data to cpu
                 # train data and labels are torch.tensor objects
                 # compute all metrics on this batch
-                summary_batch = {metric: metrics[metric](output_batch.cpu(), labels_batch.cpu())
+                summary_batch = {metric: metrics[metric](output_batch.to('cpu'), labels_batch.to('cpu'))
                                  for metric in metrics.keys()}
                 # add 'loss' as a metric -> because loss is already computed by loss_fn, no need to define another metric function
-                summary_batch['loss'] = loss.item()
+                summary_batch['loss'] = loss.detach().item()
 
-                # write training summary to tensorboard
-                for metric, value in summary_batch.items():
-                    writer.add_scalar(
-                        'training '+metric, value, epoch*len(dataloader)+i
-                    )
+                # write training summary to tensorboard if applicable
+                if writer is not None:
+                    for metric, value in summary_batch.items():
+                        writer.add_scalar(
+                            'training '+metric, value, epoch*len(dataloader)+i
+                        )
 
                 # append summary
                 summ.append(summary_batch)
 
             # update the running average loss
-            loss_avg.update(loss.item())
+            loss_avg.update(loss.detach().item())
 
             # update progress bar to show running average for loss
             prog.set_postfix(loss='{:05.3f}'.format(loss_avg()))
@@ -137,7 +138,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, writer=
 
 
 def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metrics, params,
-                       exp_dir, scheduler=None, restore_file=None, writer=None):
+                       exp_dir, device, scheduler=None, restore_file=None, writer=None):
     """
     Train the model and evaluate on every epoch
 
@@ -151,6 +152,8 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
         params: (Params) hyperparameters
         exp_dir: (string) directory containing params.json, learned weights, and logs
         restore_file: (string) optional = name of file to restore training from -> no filename extension .pth or .pth.tar/gz
+        writer: (tensorboard) tensorboard summary writer
+        device: (str) device type; usually 'cuda:0' or 'cpu'
 
     """
 
@@ -173,10 +176,10 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
             logging.info("learning rate = {} for parameter group {}".format(param_group['lr'], i))
 
         # train for one full pass over the training set
-        train_metrics = train(model, optimizer, loss_fn, train_loader, metrics, params, epoch, writer)
+        train_metrics = train(model, optimizer, loss_fn, train_loader, metrics, params, epoch, device, writer)
 
         # evaluate for one epoch on the validation set
-        val_metrics = evaluate(model, loss_fn, val_loader, metrics, params)
+        val_metrics = evaluate(model, loss_fn, val_loader, metrics, params, device)
 
         # schedule learning rate
         if scheduler is not None:
@@ -202,18 +205,21 @@ def train_and_evaluate(model, optimizer, train_loader, val_loader, loss_fn, metr
             logging.info("- Found new best accuray model at epoch {}".format(epoch+1))
             best_val_accu = val_accu
 
-        # add train and validation per-epoch mean metrics to tensorboard
-        for metric, value in train_metrics.items():
-            if metric in val_metrics.keys():
-                writer.add_scalars(metric, {'train': value, 'val': val_metrics[metric]}, epoch)
+        # add training log to tensorboard
+        if writer is not None:
 
-        # add layer weights / gradients distributions to tensorboard
-        for idx, m in enumerate(model.modules()):
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                if m.weight is not None:
-                    writer.add_histogram('layer{}.weight'.format(idx), m.weight, epoch)
-                if m.weight.grad is not None:
-                    writer.add_histogram('layer{}.weight.grad'.format(idx), m.weight.grad, epoch)
+            # train and validation per-epoch mean metrics
+            for metric, value in train_metrics.items():
+                if metric in val_metrics.keys():
+                    writer.add_scalars(metric, {'train': value, 'val': val_metrics[metric]}, epoch)
+
+            # layer weights / gradients distributions
+            for idx, m in enumerate(model.modules()):
+                if isinstance(m, (nn.Conv2d, nn.Linear)):
+                    if m.weight is not None:
+                        writer.add_histogram('layer{}.weight'.format(idx), m.weight, epoch)
+                    if m.weight.grad is not None:
+                        writer.add_histogram('layer{}.weight.grad'.format(idx), m.weight.grad, epoch)
 
 
 if __name__ == '__main__':
@@ -236,6 +242,7 @@ if __name__ == '__main__':
 
     # use GPU if available
     train_params.cuda = torch.cuda.is_available()
+    myDevice = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # set random seed for reproducible experiments
     torch.manual_seed(200)
@@ -245,15 +252,11 @@ if __name__ == '__main__':
     ### --------- model ---------- ###
     # define the model
     net, model = models_dict.dict[args.model].split('.')
-    if train_params.cuda:
-        myModel = getattr(import_module('.'+net, 'model'), model)().cuda()
-    else:
-        myModel = getattr(import_module('.'+net, 'model'), model)()
+    myModel = getattr(import_module('.'+net, 'model'), model)().to(myDevice)
 
     # add model architecture to tensorboard & log
     images, labels = data_loader.select_n_random('train', args.data_dir, n=2)
-    if train_params.cuda:
-        images, labels = images.cuda(), labels.cuda()
+    images, labels = images.to(myDevice), labels.to(myDevice)
     # write to tensorboard
     writer.add_graph(myModel, images.float())
     # write to log file
@@ -300,6 +303,6 @@ if __name__ == '__main__':
 
     ### ----- train the model ----- ###
     logging.info('Starting training for {} epoch(s)...'.format(train_params.num_epochs))
-    
+
     train_and_evaluate(myModel, myOptimizer, train_dl, test_dl, my_loss_fn, my_metrics, train_params,
-                       args.exp_dir, myScheduler, args.restore_file, writer)
+                       args.exp_dir, myDevice, myScheduler, args.restore_file, writer)

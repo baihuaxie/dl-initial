@@ -26,13 +26,13 @@ if __name__ == "__main__":
         #'resnet34',
         #'resnet50',
         #'resnet101',
-        #'resnet152',
+        'resnet152',
         #'densenet40_k12',
-        'densenet100_k12',
-        'densenet100_k24',
-        'densenetbc100_k12',
-        'densenetbc250_k24',
-        'densenetbc190_k40'
+        #'densenet100_k12',
+        #'densenet100_k24',
+        #'densenetbc100_k12',
+        #'densenetbc250_k24',
+        #'densenetbc190_k40'
     ]
 
     for model in models:
