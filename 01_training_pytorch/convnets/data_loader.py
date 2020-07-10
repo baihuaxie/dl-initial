@@ -94,6 +94,7 @@ def select_n_random(dataset_type, datadir, n=1):
     Args:
         dataset_type: (str) a string of either 'train', 'val' or 'test'
         datadir: (str) file path to the raw dataset
+        n: (int) number of random samples
 
     Return:
         n data points + corresponding labels (both tensors)
@@ -135,13 +136,15 @@ def fetch_dataloader(types, datadir, params):
             if split == 'train':
                 # trainset = CIFAR10(datadir, download=False, train=True, transform=train_transform)
                 trainset = fetch_dataset(split, datadir, 'CIFAR10')['train']
-                dataloader = DataLoader(trainset, batch_size=params.batch_size, shuffle=True, num_workers=params.num_workers, pin_memory=params.pin_cuda)
+                dataloader = DataLoader(trainset, batch_size=params.batch_size, shuffle=True,
+                                        num_workers=params.num_workers, pin_memory=params.pin_cuda)
 
             # apply test set transforms if test data
             if split == 'test':
                 # testset = CIFAR10(datadir, download=False, train=False, transform=test_transform)
                 testset = fetch_dataset(split, datadir, 'CIFAR10')['test']
-                dataloader = DataLoader(testset, batch_size=params.batch_size, shuffle=True, num_workers=params.num_workers, pin_memory=params.pin_cuda)
+                dataloader = DataLoader(testset, batch_size=params.batch_size, shuffle=True,
+                                        num_workers=params.num_workers, pin_memory=params.pin_cuda)
 
             dataloaders[split] = dataloader
 
@@ -175,7 +178,7 @@ def fetch_subset_dataloader(types, datadir, params, batch_num):
                 subset_indices = range(params.batch_size * batch_num)
                 trainset_subset = Subset(trainset, subset_indices)
                 dataloader = DataLoader(trainset_subset, batch_size=params.batch_size, shuffle=True,
-                                    num_workers=params.num_workers, pin_memory=params.pin_cuda)
+                                        num_workers=params.num_workers, pin_memory=params.pin_cuda)
 
             # return testset subset dataloader
             if split == 'test':
@@ -190,4 +193,3 @@ def fetch_subset_dataloader(types, datadir, params, batch_num):
             dataloaders[split] = dataloader
 
     return dataloaders
-
