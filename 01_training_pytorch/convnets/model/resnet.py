@@ -380,7 +380,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-    def _forward_impl(self, x):
+    def _forward_imp1(self, x):
         """ forward method: no dropout """
                                                                         # batch_size x 3 x H x H -> 32 x 32 on cifar-10
         x = self.bn1(self.conv1(x))                                     # batch_size x 64 x H x H -> 32 x 32
