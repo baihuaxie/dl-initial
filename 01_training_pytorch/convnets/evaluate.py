@@ -50,5 +50,6 @@ def evaluate(model, loss_fn, dataloader, metrics, params):
     metrics_string = ' ; '.join('{}: {:05.3f}'.format(k, v) for k, v in metrics_mean.items())
 
     logging.info("- Eval metrics: {}".format(metrics_string))
+
     return metrics_mean
     

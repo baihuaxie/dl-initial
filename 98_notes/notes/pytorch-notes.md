@@ -39,6 +39,21 @@ $$
   * hence for the commonly used conv3x3 kernel, it is customary to set dilation=padding=stride=1 to avoid dimension mismatch
   * this also works if stride=2 (in this case H~out~ = 1/2 * H~in~; the fraction in the formula could be rounded)
 * if kernel_size = 1, padding=0, dilation=arbitray, stride=1, then H~out~ = H~in~ 
+* computational cost:
+  * assume input D~F~ x D~F~ x M fmaps and output D~F~ x D~F~ x N fmaps, stride=1, with padding
+  * standard convolution:
+    * filters D~K~ x D~K~ x M x N
+    * each activation on the output requires D~K~ x D~K~ x M MACs; total D~F~ x D~F~ x N output activations 
+    * hence total computational cost = # of MACs' = D~K~ x D~K~ x D~F~ x D~F~ x M x N
+  * depthwise separable convolution:
+    * filters D~K~ x D~K~ x M + 1 x 1 x M x N
+    * computational cost of first filters = D~K~ x D~K~ x D~F~ x D~F~ x M
+    * computational cost of second filters (1x1) = D~F~ x D~F~ x M x N
+    * total computational cost = D~K~ x D~K~ x D~F~ x D~F~ x M + D~F~ x D~F~ x M x N
+  * ratio:
+    * depthwise separable / standard conv = $\frac{1}{N}+\frac{1}{D_K^2}$
+
+
 
 ----
 
