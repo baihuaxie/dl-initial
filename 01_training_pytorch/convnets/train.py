@@ -307,9 +307,10 @@ if __name__ == '__main__':
         # the one cycle scheduler
         # warm up lr from initial_lr = max_lr / div_factor to max_lr for first div_factor steps
         # then decay to min_lr = initial_lr / final_div_factor by cosine or linear annealing
-        # default: pct_start=0.3, steps_per_epoch=1, final_div_factor=1e4
+        # default: pct_start=5/total_steps, steps_per_epoch=1, final_div_factor=1e4
         myScheduler = optim.lr_scheduler.OneCycleLR(myOptimizer, max_lr=myParams.scheduler_max_lr, epochs=myParams.num_epochs,
                                                     steps_per_epoch=1, div_factor=myParams.scheduler_div_factor,
+                                                    pct_start=5/myParams.num_epochs,
                                                     final_div_factor=myParams.scheduler_final_div_factor)
 
     # fetch loss function and metrics
