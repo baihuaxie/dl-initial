@@ -92,6 +92,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device,
 
             # compute loss
             loss = loss_fn(output_batch, labels_batch)
+            loss_detach = loss.detach()
 
             # clear previous gradients, back-propagate gradients of loss w.r.t. all parameters
             optimizer.zero_grad()
@@ -108,7 +109,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device,
                 summary_batch = {metric: metrics[metric](output_batch.to('cpu'), labels_batch.to('cpu'))
                                  for metric in metrics.keys()}
                 # add 'loss' as a metric -> because loss is already computed by loss_fn, no need to define another metric function
-                summary_batch['loss'] = loss.detach().item()
+                summary_batch['loss'] = loss_detach.item()
 
                 # write training summary to tensorboard if applicable
                 if writer is not None:
@@ -121,7 +122,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device,
                 summ.append(summary_batch)
 
             # update the running average loss
-            loss_avg.update(loss.detach().item())
+            loss_avg.update(loss_detach.item())
 
             # update progress bar to show running average for loss
             prog.set_postfix(loss='{:05.3f}'.format(loss_avg()))

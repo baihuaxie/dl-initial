@@ -42,11 +42,12 @@ def evaluate(model, loss_fn, dataloader, metrics, params, device):
 
         # compute loss
         loss = loss_fn(output_batch, labels_batch)
+        loss_detach = loss.detach()
 
         # move data to cpu
         # compute metrics on this batch
         summary_batch = {metric: metrics[metric](output_batch.to('cpu'), labels_batch.to('cpu')) for metric in metrics.keys()}
-        summary_batch['loss'] = loss.detach().item()
+        summary_batch['loss'] = loss_detach.item()
         summ.append(summary_batch)
 
     # compute the mean of all metrics on validation set
