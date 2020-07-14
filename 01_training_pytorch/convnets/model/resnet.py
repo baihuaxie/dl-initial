@@ -89,7 +89,7 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-        self.dropout = nn.DropOut(p=0.2)
+        self.dropout = nn.Dropout(p=0.2)
 
     def _forward_imp1(self, x):
         """ forward method: no dropout """
@@ -128,7 +128,7 @@ class BasicBlock(nn.Module):
     def forward(self, x):
         """ forward method """
 
-        return _forward_imp2(x)
+        return self._forward_imp2(x)
 
 
 class BottleNeck(nn.Module):
