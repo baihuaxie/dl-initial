@@ -13,7 +13,7 @@ __all__ = [
     'densenetbc100_k12', 'densenetbc250_k24', 'densenetbc190_k40'
 ]
 
-def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
+def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=0, dilation=1):
     """
     define a 3x3 conv-2d with padding=dilation=1
 
