@@ -11,8 +11,8 @@ from torch.hub import load_state_dict_from_url
 
 # mobilenet variants
 __all__ = [
-    'MobileNetV1', 'mobilenetv1_24_1p25_32', 'mobilenetv1_24_1p0_32', 'mobilenetv1_24_0p75_32',
-    'mobilenetv1_24_0p5_32', 'mobilenetv1_24_0p25_32',
+    'MobileNetV1', 'mobilenetv1_28_1p25_32', 'mobilenetv1_28_1p0_32', 'mobilenetv1_28_0p75_32',
+    'mobilenetv1_28_0p5_32', 'mobilenetv1_28_0p25_32',
 ]
 
 # pretrained model urls
@@ -74,16 +74,16 @@ class DepthwiseSeparableConv2d(nn.Module):
         self.outplanes = inplanes * stride
 
         self.convdw1 = conv3x3(inplanes, inplanes, stride=stride, groups=inplanes)
-        self.bn2 = norm_layer(inplanes)
+        self.bn1 = norm_layer(inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv1x1(inplanes, self.outplanes, stride=1)
-        self.bn1 = norm_layer(self.outplanes)
+        self.bn2 = norm_layer(self.outplanes)
 
     def forward(self, x):
         """ forward method """
 
-        x = self.relu(self.bn1(self.conv1(x)))
-        x = self.relu(self.bn2(self.convdw2(x)))
+        x = self.relu(self.bn1(self.convdw1(x)))
+        x = self.relu(self.bn2(self.conv2(x)))
         return x
 
 
@@ -140,7 +140,7 @@ class MobileNetV1(nn.Module):
 
         # set base planes (the number of output channels after first conv filter)
         # on cifar -> 8 (custom); on ImageNet -> 32 (follows original paper)
-        self.inplanes = 8 * width_mult
+        self.inplanes = int(8 * width_mult)
 
         self.conv1 = conv3x3(3, self.inplanes, stride=1)
         self.bn1 = norm_layer(self.inplanes)
@@ -241,17 +241,17 @@ class MobileNetV1(nn.Module):
 
     def forward(self, x):
         """ forward method """
+                                                                    # batch_size x 3 x 32 x 32
+        x = self.relu(self.bn1(self.conv1(x)))                      # batch_size x 8 x 32 x 32
+        x = self.relu(self.bn2(self.convdw2(x)))                    # batch_size x 8 x 32 x 32
+        x = self.relu(self.bn3(self.conv3(x)))                      # batch_size x 16 x 32 x 32
+        x = self.stack1(x)                                          # batch_size x 128 x 4 x 4
+        x = self.stack2(x)                                          # batch_size x 128 x 4 x 4
+        x = self.stack3(x)                                          # batch_size x 256 x 2 x 2
 
-        x = self.relu(self.bn1(self.conv1(x)))
-        x = self.relu(self.bn2(self.convdw2(x)))
-        x = self.relu(self.bn3(self.conv3(x)))
-        x = self.stack1(x)
-        x = self.stack2(x)
-        x = self.stack3(x)
-
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        out = self.fc(x)
+        x = self.avgpool(x)                                         # batch_size x 256 x 1 x 1
+        x = torch.flatten(x, 1)                                     # batch_size x 256*1*1
+        out = self.fc(x)                                            # batch_size x 10
 
         return out
 
@@ -282,46 +282,46 @@ def _mobilenet_v1(arch, block, layers, width_mult, res_mult, pretrained=False, p
     return model
 
 
-def mobilenetv1_24_1p25_32(pretrained=False, progress=True, **kwargs):
+def mobilenetv1_28_1p25_32(pretrained=False, progress=True, **kwargs):
     """
     mobilenetv1
-    - 24 layers
+    - 28 layers
     - resolution = 32x32 (cifar); res_mult = 1.0
     - width_mult = 1.25
     """
     return _mobilenet_v1('mobilenetv1', DepthwiseSeparableConv2d, [3, 4], 1.25, 1.0, pretrained, progress, **kwargs)
 
-def mobilenetv1_24_1p0_32(pretrained=False, progress=True, **kwargs):
+def mobilenetv1_28_1p0_32(pretrained=False, progress=True, **kwargs):
     """
     mobilenetv1
-    - 24 layers
+    - 28 layers
     - resolution = 32x32 (cifar); res_mult = 1.0
     - width_mult = 1.0
     """
     return _mobilenet_v1('mobilenetv1', DepthwiseSeparableConv2d, [3, 4], 1.0, 1.0, pretrained, progress, **kwargs)
 
-def mobilenetv1_24_0p75_32(pretrained=False, progress=True, **kwargs):
+def mobilenetv1_28_0p75_32(pretrained=False, progress=True, **kwargs):
     """
     mobilenetv1
-    - 24 layers
+    - 28 layers
     - resolution = 32x32 (cifar); res_mult = 1.0
     - width_mult = 0.75
     """
     return _mobilenet_v1('mobilenetv1', DepthwiseSeparableConv2d, [3, 4], 0.75, 1.0, pretrained, progress, **kwargs)
 
-def mobilenetv1_24_0p5_32(pretrained=False, progress=True, **kwargs):
+def mobilenetv1_28_0p5_32(pretrained=False, progress=True, **kwargs):
     """
     mobilenetv1
-    - 24 layers
+    - 28 layers
     - resolution = 32x32 (cifar); res_mult = 1.0
     - width_mult = 0.5
     """
     return _mobilenet_v1('mobilenetv1', DepthwiseSeparableConv2d, [3, 4], 0.5, 1.0, pretrained, progress, **kwargs)
 
-def mobilenetv1_24_0p25_32(pretrained=False, progress=True, **kwargs):
+def mobilenetv1_28_0p25_32(pretrained=False, progress=True, **kwargs):
     """
     mobilenetv1
-    - 24 layers
+    - 28 layers
     - resolution = 32x32 (cifar); res_mult = 1.0
     - width_mult = 0.25
     """
