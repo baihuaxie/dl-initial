@@ -249,7 +249,7 @@ class ResNet(nn.Module):
 
     """
 
-    def __init__(self, block, stacks, num_classes=10, zero_init_residual=False,
+    def __init__(self, block, stacks, num_classes=10, zero_init_residual=True,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         """
@@ -316,7 +316,7 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
         # zero-initiate the last BN layer in each residual block (basic or bottleneck)
         if zero_init_residual:
-            for m in self.module():
+            for m in self.modules():
                 if isinstance(m, BottleNeck):
                     nn.init.constant_(m.bn3.weight, 0)
                 elif isinstance(m, BasicBlock):

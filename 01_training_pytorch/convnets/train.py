@@ -293,6 +293,11 @@ if __name__ == '__main__':
         myOptimizer = optim.SGD(myModel.parameters(), lr=myParams.initial_lr, momentum=myParams.momentum,
                                 weight_decay=myParams.weight_decay, nesterov=True)
 
+    if myParams.optimizer == 'RMSprop':
+        # use RMSprop
+        myOptimizer = optim.RMSprop(myModel.parameters(), lr=myParams.initial_lr, momentum=myParams.momentum,
+                                    weight_decay=myParams.weight_decay, alpha=myParams.alpha)
+
     ### ------ scheduler --------- ###
     # define learning rate scheduler
     if myParams.scheduler == 'MultiStepLR':
