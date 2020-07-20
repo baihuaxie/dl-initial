@@ -79,12 +79,27 @@ class DepthwiseSeparableConv2d(nn.Module):
         self.conv2 = conv1x1(inplanes, self.outplanes, stride=1)
         self.bn2 = norm_layer(self.outplanes)
 
-    def forward(self, x):
-        """ forward method """
+        self.dropout = nn.Dropout(p=0.2)
+
+    def _forward_imp1(self, x):
+        """ forward method with dropout """
+
+        x = self.relu(self.bn1(self.convdw1(x)))
+        x = self.dropout(x)
+        x = self.relu(self.bn2(self.conv2(x)))
+        x = self.dropout(x)
+        return x
+
+    def _forward_imp2(self, x):
+        """ forward method without dropout """
 
         x = self.relu(self.bn1(self.convdw1(x)))
         x = self.relu(self.bn2(self.conv2(x)))
         return x
+
+    def forward(self, x):
+        """ forward method """
+        return self._forward_imp1(x)
 
 
 class MobileNetV1(nn.Module):

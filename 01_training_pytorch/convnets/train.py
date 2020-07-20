@@ -31,6 +31,7 @@ from torch.utils.tensorboard import SummaryWriter
 # models
 import model.resnet as resnet
 import model.densenet as densenet
+import model.mobilenetv1 as mobilenetv1
 
 # utilities
 import data_loader
