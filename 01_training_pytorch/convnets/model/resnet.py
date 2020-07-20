@@ -89,8 +89,10 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-    def forward(self, x):
-        """ forward method """
+        self.dropout = nn.Dropout(p=0.2)
+
+    def _forward_imp1(self, x):
+        """ forward method: no dropout """
         identity = x                                            # batch_size x inplanes x H x H
 
         out = self.bn1(self.conv1(x))                           # batch_size x planes x H/stride x H/stride -> downsamples if stride > 1
@@ -104,6 +106,29 @@ class BasicBlock(nn.Module):
         out = F.relu(out, inplace=True)
 
         return out                                              # batch_size x planes x H/stride x H/stride
+
+    def _forward_imp2(self, x):
+        """ forward method: dropout after each conv filter """
+        identity = x                                            # batch_size x inplanes x H x H
+
+        out = self.bn1(self.conv1(x))                           # batch_size x planes x H/stride x H/stride -> downsamples if stride > 1
+        out = F.relu(out, inplace=True)
+        out = self.dropout(out)
+        out = self.bn2(self.conv2(out))                         # batch_size x planes x H/stride x H/stride -> maintain dimensions
+        out = self.dropout(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity                                         # skip connection
+        out = F.relu(out, inplace=True)
+
+        return out                                              # batch_size x planes x H/stride x H/stride
+
+    def forward(self, x):
+        """ forward method """
+
+        return self._forward_imp2(x)
 
 
 class BottleNeck(nn.Module):
@@ -163,8 +188,10 @@ class BottleNeck(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-    def forward(self, x):
-        """ forward method for BottleNeck class """
+        self.dropout = nn.Dropout(p=0.2)
+
+    def _forward_imp1(self, x):
+        """ forward method for BottleNeck class: no dropout """
 
         identity = x                                                # batch_size x inplanes x H x H
 
@@ -179,6 +206,31 @@ class BottleNeck(nn.Module):
         out = self.relu(out)
 
         return out                                                  # batch_size x planes*self.expansion x H/stride x H/stride
+
+    def _forward_imp2(self, x):
+        """ forward method for BottleNeck class: dropout after each conv filter """
+
+        identity = x                                                # batch_size x inplanes x H x H
+
+        out = self.relu(self.bn1(self.conv1(x)))                    # batch_size x width x H x H
+        out = self.dropout(out)
+        out = self.relu(self.bn2(self.conv2(out)))                  # batch_size x width x H/stride x H/stride
+        out = self.dropout(out)
+        out = self.bn3(self.conv3(out))                             # batch_size x planes*self.expansion x H/stride x H/stride
+        out = self.dropout(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity                                             # skip connection
+        out = self.relu(out)
+
+        return out                                                  # batch_size x planes*self.expansion x H/stride x H/stride
+
+    def forward(self, x):
+        """ forward method """
+
+        return self._forward_imp2(x)
 
 class ResNet(nn.Module):
     """
@@ -197,7 +249,7 @@ class ResNet(nn.Module):
 
     """
 
-    def __init__(self, block, stacks, num_classes=10, zero_init_residual=False,
+    def __init__(self, block, stacks, num_classes=10, zero_init_residual=True,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         """
@@ -253,7 +305,7 @@ class ResNet(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(256 * block.expansion, num_classes)
 
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.2)
 
         # initialization
         for m in self.modules():
@@ -264,7 +316,7 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
         # zero-initiate the last BN layer in each residual block (basic or bottleneck)
         if zero_init_residual:
-            for m in self.module():
+            for m in self.modules():
                 if isinstance(m, BottleNeck):
                     nn.init.constant_(m.bn3.weight, 0)
                 elif isinstance(m, BasicBlock):
@@ -328,7 +380,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-    def _forward_impl(self, x):
+    def _forward_imp1(self, x):
         """ forward method: no dropout """
                                                                         # batch_size x 3 x H x H -> 32 x 32 on cifar-10
         x = self.bn1(self.conv1(x))                                     # batch_size x 64 x H x H -> 32 x 32
@@ -358,13 +410,13 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)                                             # batch_size x 256*block.expansion x 1 x 1
         x = torch.flatten(x, 1)                                         # batch_size x 256*block.expansion*1*1
-        out = self.fc(x)                                                  # batch_size x num_classes
+        out = self.fc(x)                                                # batch_size x num_classes
 
         return out
 
     def forward(self, x):
         """ forward method """
-        return self._forward_imp2(x)
+        return self._forward_imp1(x)
 
 
 

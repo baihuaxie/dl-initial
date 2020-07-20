@@ -92,6 +92,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device,
 
             # compute loss
             loss = loss_fn(output_batch, labels_batch)
+            loss_detach = loss.detach()
 
             # clear previous gradients, back-propagate gradients of loss w.r.t. all parameters
             optimizer.zero_grad()
@@ -108,7 +109,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device,
                 summary_batch = {metric: metrics[metric](output_batch.to('cpu'), labels_batch.to('cpu'))
                                  for metric in metrics.keys()}
                 # add 'loss' as a metric -> because loss is already computed by loss_fn, no need to define another metric function
-                summary_batch['loss'] = loss.detach().item()
+                summary_batch['loss'] = loss_detach.item()
 
                 # write training summary to tensorboard if applicable
                 if writer is not None:
@@ -121,7 +122,7 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params, epoch, device,
                 summ.append(summary_batch)
 
             # update the running average loss
-            loss_avg.update(loss.detach().item())
+            loss_avg.update(loss_detach.item())
 
             # update progress bar to show running average for loss
             prog.set_postfix(loss='{:05.3f}'.format(loss_avg()))
@@ -229,7 +230,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     json_path = os.path.join(args.exp_dir, 'params.json')
     assert os.path.isfile(json_path), "No json configuration file found at {}".format(json_path)
-    train_params = utils.Params(json_path)
+    myParams = utils.Params(json_path)
 
     # load the models from json file
     models_dict = utils.Params('./model/models.json')
@@ -241,12 +242,12 @@ if __name__ == '__main__':
     utils.set_logger(os.path.join(args.exp_dir, 'train.log'))
 
     # use GPU if available
-    train_params.cuda = torch.cuda.is_available()
+    myParams.cuda = torch.cuda.is_available()
     myDevice = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # set random seed for reproducible experiments
     torch.manual_seed(200)
-    if train_params.cuda:
+    if myParams.cuda:
         torch.cuda.manual_seed(200)
 
     ### --------- model ---------- ###
@@ -270,12 +271,12 @@ if __name__ == '__main__':
     # if in test mode, fetch 10 batches
     if args.run_mode == 'test':
         data_loaders = data_loader.fetch_subset_dataloader(
-            ['train', 'test'], args.data_dir, train_params, 10)
+            ['train', 'test'], args.data_dir, myParams, 10)
         train_dl = data_loaders['train']
         test_dl = data_loaders['test']
     else:
         data_loaders = data_loader.fetch_dataloader(
-            ['train', 'test'], args.data_dir, train_params)
+            ['train', 'test'], args.data_dir, myParams)
         train_dl = data_loaders['train']
         test_dl = data_loaders['test']
 
@@ -283,26 +284,46 @@ if __name__ == '__main__':
 
     ### ------ optimizer --------- ###
     # define the optimizer
-    if train_params.optimizer == 'Adam':
+    if myParams.optimizer == 'Adam':
         # use Adam
-        myOptimizer = optim.Adam(myModel.parameters(), lr=train_params.initial_lr,
-                                 weight_decay=train_params.weight_decay)
-    if train_params.optimizer == 'SGD':
+        myOptimizer = optim.Adam(myModel.parameters(), lr=myParams.initial_lr,
+                                 weight_decay=myParams.weight_decay)
+    if myParams.optimizer == 'SGD':
         # use SGD w.t. Nesterov momentum
-        myOptimizer = optim.SGD(myModel.parameters(), lr=train_params.initial_lr, momentum=train_params.momentum,
-                                weight_decay=train_params.weight_decay, nesterov=True)
+        myOptimizer = optim.SGD(myModel.parameters(), lr=myParams.initial_lr, momentum=myParams.momentum,
+                                weight_decay=myParams.weight_decay, nesterov=True)
 
+    if myParams.optimizer == 'RMSprop':
+        # use RMSprop
+        myOptimizer = optim.RMSprop(myModel.parameters(), lr=myParams.initial_lr, momentum=myParams.momentum,
+                                    weight_decay=myParams.weight_decay, alpha=myParams.alpha)
+
+    ### ------ scheduler --------- ###
     # define learning rate scheduler
-    if train_params.scheduler == 'MultiStepLR':
-        myScheduler = optim.lr_scheduler.MultiStepLR(myOptimizer, milestones=train_params.scheduler_milestones,
-                                                     gamma=train_params.scheduler_gamma)
+    if myParams.scheduler == 'MultiStepLR':
+        myScheduler = optim.lr_scheduler.MultiStepLR(myOptimizer, milestones=myParams.scheduler_milestones,
+                                                     gamma=myParams.scheduler_gamma)
+
+    if myParams.scheduler == 'StepLR':
+        myScheduler = optim.lr_scheduler.StepLR(myOptimizer, step_size=myParams.scheduler_step_size,
+                                                gamma=myParams.scheduler_gamma)
+
+    if myParams.scheduler == 'OneCycleLR':
+        # the one cycle scheduler
+        # warm up lr from initial_lr = max_lr / div_factor to max_lr for first div_factor steps
+        # then decay to min_lr = initial_lr / final_div_factor by cosine or linear annealing
+        # default: pct_start=5/total_steps, steps_per_epoch=1, final_div_factor=1e4
+        myScheduler = optim.lr_scheduler.OneCycleLR(myOptimizer, max_lr=myParams.scheduler_max_lr, epochs=myParams.num_epochs,
+                                                    steps_per_epoch=1, div_factor=myParams.scheduler_div_factor,
+                                                    pct_start=5/myParams.num_epochs,
+                                                    final_div_factor=myParams.scheduler_final_div_factor)
 
     # fetch loss function and metrics
     my_loss_fn = obj.loss_fn
     my_metrics = obj.metrics
 
     ### ----- train the model ----- ###
-    logging.info('Starting training for {} epoch(s)...'.format(train_params.num_epochs))
+    logging.info('Starting training for {} epoch(s)...'.format(myParams.num_epochs))
 
-    train_and_evaluate(myModel, myOptimizer, train_dl, test_dl, my_loss_fn, my_metrics, train_params,
+    train_and_evaluate(myModel, myOptimizer, train_dl, test_dl, my_loss_fn, my_metrics, myParams,
                        args.exp_dir, myDevice, myScheduler, args.restore_file, writer)
