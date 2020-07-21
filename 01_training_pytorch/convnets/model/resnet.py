@@ -153,7 +153,7 @@ class BottleNeck(nn.Module):
             inplanes: (int) number of input channels
             planes: (int) number of output channels = planes * self.expansion
             stride: (int) stride
-            downsample: () downsamples output fmaps -> require dimension matching for skip connection; must set if stride > 1
+            downsample: (nn.Module) downsamples output fmaps -> require dimension matching for skip connection; must set if stride > 1
             groups: (int)
             base_width: (int)
             dilation: (int) dilated convolution
