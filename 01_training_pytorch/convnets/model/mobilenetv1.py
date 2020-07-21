@@ -99,7 +99,7 @@ class DepthwiseSeparableConv2d(nn.Module):
 
     def forward(self, x):
         """ forward method """
-        return self._forward_imp1(x)
+        return self._forward_imp2(x)
 
 
 class MobileNetV1(nn.Module):
