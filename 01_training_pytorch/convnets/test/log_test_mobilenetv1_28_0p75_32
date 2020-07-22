@@ -1,0 +1,108 @@
+----------------------------------------------------------------
+        Layer (type)               Output Shape         Param #
+================================================================
+            Conv2d-1            [-1, 6, 32, 32]             162
+       BatchNorm2d-2            [-1, 6, 32, 32]              12
+              ReLU-3            [-1, 6, 32, 32]               0
+            Conv2d-4            [-1, 6, 32, 32]              54
+       BatchNorm2d-5            [-1, 6, 32, 32]              12
+              ReLU-6            [-1, 6, 32, 32]               0
+            Conv2d-7           [-1, 12, 32, 32]              72
+       BatchNorm2d-8           [-1, 12, 32, 32]              24
+              ReLU-9           [-1, 12, 32, 32]               0
+           Conv2d-10           [-1, 12, 16, 16]             108
+      BatchNorm2d-11           [-1, 12, 16, 16]              24
+             ReLU-12           [-1, 12, 16, 16]               0
+           Conv2d-13           [-1, 24, 16, 16]             288
+      BatchNorm2d-14           [-1, 24, 16, 16]              48
+             ReLU-15           [-1, 24, 16, 16]               0
+DepthwiseSeparableConv2d-16           [-1, 24, 16, 16]               0
+           Conv2d-17           [-1, 24, 16, 16]             216
+      BatchNorm2d-18           [-1, 24, 16, 16]              48
+             ReLU-19           [-1, 24, 16, 16]               0
+           Conv2d-20           [-1, 24, 16, 16]             576
+      BatchNorm2d-21           [-1, 24, 16, 16]              48
+             ReLU-22           [-1, 24, 16, 16]               0
+DepthwiseSeparableConv2d-23           [-1, 24, 16, 16]               0
+           Conv2d-24             [-1, 24, 8, 8]             216
+      BatchNorm2d-25             [-1, 24, 8, 8]              48
+             ReLU-26             [-1, 24, 8, 8]               0
+           Conv2d-27             [-1, 48, 8, 8]           1,152
+      BatchNorm2d-28             [-1, 48, 8, 8]              96
+             ReLU-29             [-1, 48, 8, 8]               0
+DepthwiseSeparableConv2d-30             [-1, 48, 8, 8]               0
+           Conv2d-31             [-1, 48, 8, 8]             432
+      BatchNorm2d-32             [-1, 48, 8, 8]              96
+             ReLU-33             [-1, 48, 8, 8]               0
+           Conv2d-34             [-1, 48, 8, 8]           2,304
+      BatchNorm2d-35             [-1, 48, 8, 8]              96
+             ReLU-36             [-1, 48, 8, 8]               0
+DepthwiseSeparableConv2d-37             [-1, 48, 8, 8]               0
+           Conv2d-38             [-1, 48, 4, 4]             432
+      BatchNorm2d-39             [-1, 48, 4, 4]              96
+             ReLU-40             [-1, 48, 4, 4]               0
+           Conv2d-41             [-1, 96, 4, 4]           4,608
+      BatchNorm2d-42             [-1, 96, 4, 4]             192
+             ReLU-43             [-1, 96, 4, 4]               0
+DepthwiseSeparableConv2d-44             [-1, 96, 4, 4]               0
+           Conv2d-45             [-1, 96, 4, 4]             864
+      BatchNorm2d-46             [-1, 96, 4, 4]             192
+             ReLU-47             [-1, 96, 4, 4]               0
+           Conv2d-48             [-1, 96, 4, 4]           9,216
+      BatchNorm2d-49             [-1, 96, 4, 4]             192
+             ReLU-50             [-1, 96, 4, 4]               0
+DepthwiseSeparableConv2d-51             [-1, 96, 4, 4]               0
+           Conv2d-52             [-1, 96, 4, 4]             864
+      BatchNorm2d-53             [-1, 96, 4, 4]             192
+             ReLU-54             [-1, 96, 4, 4]               0
+           Conv2d-55             [-1, 96, 4, 4]           9,216
+      BatchNorm2d-56             [-1, 96, 4, 4]             192
+             ReLU-57             [-1, 96, 4, 4]               0
+DepthwiseSeparableConv2d-58             [-1, 96, 4, 4]               0
+           Conv2d-59             [-1, 96, 4, 4]             864
+      BatchNorm2d-60             [-1, 96, 4, 4]             192
+             ReLU-61             [-1, 96, 4, 4]               0
+           Conv2d-62             [-1, 96, 4, 4]           9,216
+      BatchNorm2d-63             [-1, 96, 4, 4]             192
+             ReLU-64             [-1, 96, 4, 4]               0
+DepthwiseSeparableConv2d-65             [-1, 96, 4, 4]               0
+           Conv2d-66             [-1, 96, 4, 4]             864
+      BatchNorm2d-67             [-1, 96, 4, 4]             192
+             ReLU-68             [-1, 96, 4, 4]               0
+           Conv2d-69             [-1, 96, 4, 4]           9,216
+      BatchNorm2d-70             [-1, 96, 4, 4]             192
+             ReLU-71             [-1, 96, 4, 4]               0
+DepthwiseSeparableConv2d-72             [-1, 96, 4, 4]               0
+           Conv2d-73             [-1, 96, 4, 4]             864
+      BatchNorm2d-74             [-1, 96, 4, 4]             192
+             ReLU-75             [-1, 96, 4, 4]               0
+           Conv2d-76             [-1, 96, 4, 4]           9,216
+      BatchNorm2d-77             [-1, 96, 4, 4]             192
+             ReLU-78             [-1, 96, 4, 4]               0
+DepthwiseSeparableConv2d-79             [-1, 96, 4, 4]               0
+           Conv2d-80             [-1, 96, 2, 2]             864
+      BatchNorm2d-81             [-1, 96, 2, 2]             192
+             ReLU-82             [-1, 96, 2, 2]               0
+           Conv2d-83            [-1, 192, 2, 2]          18,432
+      BatchNorm2d-84            [-1, 192, 2, 2]             384
+             ReLU-85            [-1, 192, 2, 2]               0
+DepthwiseSeparableConv2d-86            [-1, 192, 2, 2]               0
+           Conv2d-87            [-1, 192, 2, 2]           1,728
+      BatchNorm2d-88            [-1, 192, 2, 2]             384
+             ReLU-89            [-1, 192, 2, 2]               0
+           Conv2d-90            [-1, 192, 2, 2]          36,864
+      BatchNorm2d-91            [-1, 192, 2, 2]             384
+             ReLU-92            [-1, 192, 2, 2]               0
+DepthwiseSeparableConv2d-93            [-1, 192, 2, 2]               0
+AdaptiveAvgPool2d-94            [-1, 192, 1, 1]               0
+           Linear-95                   [-1, 10]           1,930
+================================================================
+Total params: 124,942
+Trainable params: 124,942
+Non-trainable params: 0
+----------------------------------------------------------------
+Input size (MB): 0.01
+Forward/backward pass size (MB): 1.99
+Params size (MB): 0.48
+Estimated Total Size (MB): 2.48
+----------------------------------------------------------------

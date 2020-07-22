@@ -9,7 +9,7 @@ from torch.hub import load_state_dict_from_url
 
 # mobilenet variants
 __all__ = [
-    'MobileNet', 'mobilenet20_1p0_t3'
+    'MobileNet', 'mobilenet20_1p0_t3', 'mobilenet20_1p0_t4'
 ]
 
 # pretrained models
@@ -107,10 +107,10 @@ class MBConv(nn.Module):
 
         out = self.relu(self.bn1(self.conv1(x)))
         out = self.dropout(out)
-        out = self.relu(self.bn2(self.convdw2(x)))
+        out = self.relu(self.bn2(self.convdw2(out)))
         out = self.dropout(out)
         # last conv layer is linear
-        out = self.bn3(self.conv3(x))
+        out = self.bn3(self.conv3(out))
         out = self.dropout(out)
 
         # skip connection
@@ -301,4 +301,15 @@ def mobilenet20_1p0_t3(pretrained=False, progress=False, **kwargs):
     - no dropout
     """
     return _mobilenet('mobilenet20', MBConv, [1, 2, 3, 4, 3, 3, 1], width_mult=1.0, expansion=3,
+                      dropout=0, pretrained=pretrained, progress=progress, **kwargs)
+
+
+def mobilenet20_1p0_t4(pretrained=False, progress=False, **kwargs):
+    """
+    mobilenet20
+    - width multiplier = 1.0
+    - expansion = 4
+    - no dropout
+    """
+    return _mobilenet('mobilenet20', MBConv, [1, 2, 3, 4, 3, 3, 1], width_mult=1.0, expansion=4,
                       dropout=0, pretrained=pretrained, progress=progress, **kwargs)
