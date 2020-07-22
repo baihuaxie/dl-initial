@@ -288,8 +288,8 @@ def _mobilenet(arch, block, layers, width_mult=1, expansion=1, dropout=0, pretra
     model = MobileNet(block, layers, expansion=expansion, width_mult=width_mult, dropout=dropout, **kwargs)
     if pretrained:
         if arch in model_urls.keys():
-          state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-          model.load_state_dict(state_dict)
+            state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
+            model.load_state_dict(state_dict)
 
     return model
 
