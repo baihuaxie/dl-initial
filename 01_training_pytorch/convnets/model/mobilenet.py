@@ -4,6 +4,7 @@
 """
 
 # imports
+import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 
@@ -264,6 +265,8 @@ class MobileNet(nn.Module):
 
         x = self.avgpool(x)
         x = self.conv9(x)
+
+        x = torch.flatten(x, 1)
 
         return x
 
