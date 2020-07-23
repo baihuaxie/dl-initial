@@ -17,7 +17,12 @@
     "densenet100_k24": "densenet.densenet100_k24",
     "densenetbc100_k12": "densenet.densenetbc100_k12",
     "densenetbc250_k24": "densenet.densenetbc250_k24",
-    "densenetbc190_k40": "densenet.densenetbc190_k40"
+    "densenetbc190_k40": "densenet.densenetbc190_k40",
 
+    "mobilenetv1_28_1p0_32": "mobilenetv1.mobilenetv1_28_1p0_32",
+    "mobilenetv1_28_1p25_32": "mobilenetv1.mobilenetv1_28_1p25_32",
+    "mobilenetv1_28_0p75_32": "mobilenetv1.mobilenetv1_28_0p75_32",
 
+    "mobilenet20_1p0_t3": "mobilenet.mobilenet20_1p0_t3",
+    "mobilenet20_1p0_t4": "mobilenet.mobilenet20_1p0_t4"
 }
