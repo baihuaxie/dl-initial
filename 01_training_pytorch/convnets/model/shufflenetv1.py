@@ -66,40 +66,51 @@ class ShuffleUnitV1(nn.Module):
 
     expansion = 4
 
-    def __init__(self, inplanes, groups=1, base_width=18, channel_split=1, stride=1,
-                 dropout=0, norm_layer=None, downsample=None):
+    def __init__(self, inplanes, groups=1, group_factor=None, base_width=18, stride=1,
+                 scale_factor=1, dropout=0, norm_layer=None, downsample=None, first_block=False):
         """
         Constructor
 
         Args:
             inplanes: (int) number of input channels to the block
             groups: (int) number of groups used by the grouped conv filters in the block
+            group_factor: (int) width = group_factor * base_width; default = groups
             base_width: (int) number of channels per group
-            channel_split: (float) channel split factor; disabled (fix to 1) for shuffleunitv1
             stride: (int) stride; applied to middle 3x3-conv-dw layer
+            scale_factor: (float) equivalent to width multiplier; network width scaled by scale_factor
             dropout: (float) p = dropout; if = 0 no dropout effect
             norm_layer: (nn.Module) normalization layer; default = nn.BatchNorm2d
             downsample: (nn.Sequential) downsamples skip connection by 3x3-avgpool if stride > 1
+            first_block: (bool) if true, deduct 6 from bottleneck width (according to original paper)
 
         """
         super(ShuffleUnitV1, self).__init__()
 
         self._base_width = base_width
         self._groups = groups
-        self._width = int(self._base_width * self._groups)
+
+        if group_factor is None:
+            group_factor = self._groups
+
+        self._width = int(self._base_width * group_factor)
+
+        if first_block:
+            # accoring to original paper, requires bottleneck width to deduct 6 in first block in stage 1
+            # e.g., for g=1, at stack1 first block, 144 = 24 + 120 -> width = 120 / 4 = 30
+            # but for other blocks and other stacks, width = 144 / 4 = 36 = 30 + 6
+            # this is the case for all groups, because groups would change, it is best to deduct 6 here
+            self._width -= int(6 * scale_factor)
+
         self._outplanes = int(self._width * self.expansion)
 
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
 
-        if channel_split != 1:
-            raise ValueError('ShuffleUnitV1 only supports channel_split_factor = 1')
-
         self.gconv1 = conv1x1(inplanes, self._width, stride=1, groups=groups)
         self.bn1 = norm_layer(self._width)
         self.convdw2 = conv3x3(self._width, self._width, stride=stride, groups=self._width)
         self.bn2 = norm_layer(self._width)
-        self.gconv2 = conv1x1(self._width, self._outplanes, stride=1, groups=groups)
+        self.gconv3 = conv1x1(self._width, self._outplanes, stride=1, groups=groups)
         self.bn3 = norm_layer(self._outplanes)
 
         self.relu = nn.ReLU(inplace=True)
@@ -192,7 +203,7 @@ class ShuffleNetV1(nn.Module):
             - hence must set stack base_width = base_width * stride to match progression of outplanes
     """
 
-    def __init__(self, block, layers, groups=1, base_width=18, scale_factor=1,
+    def __init__(self, block, layers, groups=1, base_width=36, scale_factor=1,
                  num_classes=10, dropout=0, norm_layer=None):
         """
         Constructor
@@ -214,8 +225,9 @@ class ShuffleNetV1(nn.Module):
             norm_layer = nn.BatchNorm2d
             self._norm_layer = norm_layer
 
-        self._inplanes = int(24 * scale_factor)
-        self._base_width = base_width
+        self._scale_factor = scale_factor
+        self._inplanes = int(24 * self._scale_factor)
+        self._base_width = int(base_width * self._scale_factor)
         self._groups = groups
         self._dropout = dropout
         self._expansion = 4
@@ -224,7 +236,7 @@ class ShuffleNetV1(nn.Module):
         self.bn1 = norm_layer(self._inplanes)
 
         # first block as a stand-alone stack, uses groups=1 (no grouped conv)
-        self.stack2 = self._make_stack(block, 1, self._inplanes, stride=2, groups=1)
+        self.stack2 = self._make_stack(block, 1, self._inplanes, stride=2, groups=1, first_block=True)
         self.stack3 = self._make_stack(block, layers[0], self._inplanes, stride=1)
         self.stack4 = self._make_stack(block, layers[1], self._inplanes, stride=2)
         self.stack5 = self._make_stack(block, layers[2], self._inplanes, stride=2)
@@ -234,8 +246,17 @@ class ShuffleNetV1(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=dropout)
 
+        # initialization
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
-    def _make_stack(self, block, num_layers, inplanes, stride=1, groups=None):
+
+    def _make_stack(self, block, num_layers, inplanes, stride=1, groups=None, first_block=False):
         """
         build shufflenet stack
 
@@ -245,6 +266,7 @@ class ShuffleNetV1(nn.Module):
             inplanes: (int) number of input channels to the stack
             stride: (int) stride applied to 3x3-conv-dw layer
             groups: (int) number of groups applied to grouped conv filters; default = self._groups
+            first_block: (bool) if true, deduct 6 from self._width in first block of first stage
 
         notes:
         - number of outplanes of each block in the stack always = inplanes * stride
@@ -253,6 +275,8 @@ class ShuffleNetV1(nn.Module):
 
         norm_layer = self._norm_layer
         downsample = None
+        group_factor = None
+        scale_factor = 1
 
         if groups is None:
             groups = self._groups
@@ -264,20 +288,28 @@ class ShuffleNetV1(nn.Module):
                 nn.AvgPool2d(kernel_size=3, stride=stride, padding=1)
             )
 
+        # set group_factor to be self._groups for first block in first stack
+        # because this block always uses groups=1 for convolution, but the actual group_factor should not be fixed to 1
+        if first_block:
+            group_factor = self._groups
+            scale_factor = self._scale_factor
+
         layers = []
 
-        # block base_width needs to be updated for current stack
-        self._base_width *= stride
+        layers.append(block(inplanes, groups=groups, group_factor=group_factor, base_width=self._base_width,
+                            stride=stride, scale_factor=scale_factor, dropout=self._dropout,
+                            norm_layer=norm_layer, downsample=downsample, first_block=first_block))
 
-        layers.append(block(inplanes, groups=groups, base_width=self._base_width, stride=stride,
-                            dropout=self._dropout, norm_layer=norm_layer, downsample=downsample))
+        # block base_width needs to be updated for current stack except for first block in first stack
+        if not first_block:
+            self._base_width *= stride
 
         # regardless of block type, block output channels = input channels * stride always holds
-        self._inplanes = self._base_width * self._expansion
+        self._inplanes = self._base_width * self._groups * self._expansion
 
         for _ in range(1, num_layers):
-            layers.append(block(self._inplanes, groups=groups, base_width=self._base_width,
-                                stride=1, dropout=self._dropout, norm_layer=norm_layer))
+            layers.append(block(self._inplanes, groups=groups, base_width=self._base_width, stride=1,
+                                dropout=self._dropout, norm_layer=norm_layer))
 
         return nn.Sequential(*layers)
 
@@ -328,7 +360,7 @@ def shufflenetv1_50_s1p0_g1(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 1.0
     - group factor = 1
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=1, base_width=18, scale_factor=1,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=1, base_width=36, scale_factor=1,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 def shufflenetv1_50_s1p0_g2(dropout=0, pretrained=False, progress=False, **kwargs):
@@ -338,7 +370,7 @@ def shufflenetv1_50_s1p0_g2(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 1.0
     - group factor = 2
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=2, base_width=13, scale_factor=1,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=2, base_width=25, scale_factor=1,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -349,7 +381,7 @@ def shufflenetv1_50_s1p0_g3(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 1.0
     - group factor = 3
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=3, base_width=10, scale_factor=1,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=3, base_width=20, scale_factor=1,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -360,7 +392,7 @@ def shufflenetv1_50_s1p0_g4(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 1.0
     - group factor = 4
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=4, base_width=9, scale_factor=1,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=4, base_width=17, scale_factor=1,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -371,7 +403,7 @@ def shufflenetv1_50_s1p0_g8(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 1.0
     - group factor = 8
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=8, base_width=6, scale_factor=1,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=8, base_width=12, scale_factor=1,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -382,7 +414,7 @@ def shufflenetv1_50_s0p5_g1(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 0.5
     - group factor = 1
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=1, base_width=18, scale_factor=0.5,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=1, base_width=36, scale_factor=0.5,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -393,7 +425,7 @@ def shufflenetv1_50_s0p5_g2(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 0.5
     - group factor = 2
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=2, base_width=13, scale_factor=0.5,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=2, base_width=25, scale_factor=0.5,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -404,7 +436,7 @@ def shufflenetv1_50_s0p5_g3(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 0.5
     - group factor = 3
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=3, base_width=10, scale_factor=0.5,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=3, base_width=20, scale_factor=0.5,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -415,7 +447,7 @@ def shufflenetv1_50_s0p5_g4(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 0.5
     - group factor = 4
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=4, base_width=9, scale_factor=0.5,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=4, base_width=17, scale_factor=0.5,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
 
 
@@ -426,5 +458,5 @@ def shufflenetv1_50_s0p5_g8(dropout=0, pretrained=False, progress=False, **kwarg
     - scaling factor = 0.5
     - group factor = 8
     """
-    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=8, base_width=6, scale_factor=0.5,
+    return _shufflenet('shufflenetv1', ShuffleUnitV1, [3, 8, 4], groups=8, base_width=12, scale_factor=0.5,
                        dropout=dropout, pretrained=pretrained, progress=progress, **kwargs)
