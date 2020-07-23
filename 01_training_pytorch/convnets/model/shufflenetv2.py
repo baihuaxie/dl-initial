@@ -80,14 +80,20 @@ class ShuffleUnitV2(nn.Module):
         super(ShuffleUnitV2, self).__init__()
 
         self._channel_split_factor = channel_split
-        self._width = int(inplanes * self._channel_split_factor)
+        if downsample is None:
+            self._width = int(inplanes * self._channel_split_factor)
+        else:
+            self._width = (inplanes)
 
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
 
+        # set groups number for channel shuffle = 2 (because channels are splitted into two paths?)
+        self._groups = 2
+
         self.conv1 = conv1x1(self._width, self._width, stride=1)
         self.bn1 = norm_layer(self._width)
-        self.convdw2 = conv3x3(self._wdith, self._width, stride=stride, groups=self._width)
+        self.convdw2 = conv3x3(self._width, self._width, stride=stride, groups=self._width)
         self.bn2 = norm_layer(self._width)
         self.conv3 = conv1x1(self._width, self._width, stride=1)
         self.bn3 = norm_layer(self._width)
@@ -145,10 +151,15 @@ class ShuffleUnitV2(nn.Module):
     def forward(self, x):
         """ forward method """
 
-        out, identity = self._channel_split(x)
-
-        if self.downsample is not None:
-            identity = self.downsample(identity)
+        if self.downsample is None:
+            # if stride=1, no downsample, split x into
+            # out for bottleneck path + identity for identity path
+            # by channel_split
+            out, identity = self._channel_split(x)
+        else:
+            # if stride=2, no channel split
+            out = x
+            identity = self.downsample(x)
 
         out = self.relu(self.bn1(self.conv1(out)))
         out = self.dropout(out)
@@ -219,7 +230,7 @@ class ShuffleNetV2(nn.Module):
         self.conv1 = conv3x3(3, 24, stride=1)
         self.bn1 = norm_layer(24)
 
-        self.stack2 = self._make_stack(block, layers[0], self._inplanes, stride=2)
+        self.stack2 = self._make_stack(block, layers[0], 24, stride=2)
         self.stack3 = self._make_stack(block, layers[1], self._inplanes, stride=2)
         self.stack4 = self._make_stack(block, layers[2], self._inplanes, stride=2)
 
@@ -284,8 +295,8 @@ class ShuffleNetV2(nn.Module):
 
         return nn.Sequential(*layers)
 
-    
-    def forwward(self, x):
+
+    def forward(self, x):
         """ forward method """
 
         x = self.relu(self.bn1(self.conv1(x)))
