@@ -40,5 +40,7 @@
     "shufflenetv2_51_s0p5": "shufflenetv2.shufflenetv2_51_s0p5",
     "shufflenetv2_51_s1p0": "shufflenetv2.shufflenetv2_51_s1p0",
     "shufflenetv2_51_s1p5": "shufflenetv2.shufflenetv2_51_s1p5",
-    "shufflenetv2_51_s2p0": "shufflenetv2.shufflenetv2_51_s2p0"
+    "shufflenetv2_51_s2p0": "shufflenetv2.shufflenetv2_51_s2p0",
+
+    "mnasneta1": "mnasnet.mnasneta1"
 }
