@@ -37,7 +37,7 @@ $$
 * if groups = in_channels: becomes depth-wise seperable convolution
 * if dilation=1, padding=1, kernel_size=3, stride=1, then H~out~ = H~in~ 
   * hence for the commonly used conv3x3 kernel, it is customary to set dilation=padding=stride=1 to avoid dimension mismatch
-  * this also works if stride=2 (in this case H~out~ = 1/2 * H~in~; the fraction in the formula could be rounded)
+  * this also works if stride=2 (in this case H~out~ = 1/2 * H~in~; the fraction in the formula could be rounded down)
 * if kernel_size = 1, padding=0, dilation=arbitray, stride=1, then H~out~ = H~in~ 
 
 ----
