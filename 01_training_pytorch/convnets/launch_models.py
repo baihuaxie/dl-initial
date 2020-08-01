@@ -35,7 +35,7 @@ if __name__ == "__main__":
         #'shufflenetv1_50_s0p5_g1',
         #'shufflenetv1_50_s0p5_g1',
         #'shufflenetv1_50_s0p5_g8',
-        'mnasneta1',
+        #'mnasneta1',
         #'shufflenetv2_51_s0p5',
         #'shufflenetv2_51_s1p5',
         'resnext50_32x4d',
