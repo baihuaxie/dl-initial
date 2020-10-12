@@ -60,7 +60,7 @@ class RunningAverage():
     loss_avg = RunningAverage()
     loss_avg = loss_avg.update(5)
     loss_avg = loss_avg.upate(7)
-    print(loss_avg()) -> 6 
+    print(loss_avg()) -> 6
 
     """
 

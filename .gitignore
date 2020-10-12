@@ -26,5 +26,5 @@
 *.zip
 98_notes/notes/pytorch-notes.md
 98_notes/notes/pytorch-notes.md
-
+96_work_logs/*
 97_assets/*
