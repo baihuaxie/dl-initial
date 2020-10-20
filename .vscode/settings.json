@@ -1,4 +1,7 @@
 {
-    "python.pythonPath": "C:\\Users\\bhxie\\Anaconda3\\python.exe",
-    "python.dataScience.jupyterServerURI": "local"
+    "python.pythonPath": "C:\\Users\\bhxie\\anaconda3\\envs\\tensorflow\\python.exe",
+    "python.dataScience.jupyterServerURI": "local",
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pytestEnabled": true
 }
