@@ -29,3 +29,5 @@
 96_work_logs/*
 97_assets/*
 98_notes/test.csv
+*/wandb/*
+*.vscode/*

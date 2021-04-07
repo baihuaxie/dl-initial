@@ -3,5 +3,6 @@
     "python.dataScience.jupyterServerURI": "local",
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "jupyter.jupyterServerType": "local"
 }
